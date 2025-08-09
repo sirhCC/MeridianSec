@@ -18,6 +18,7 @@ export interface AlertChannel {
 export interface AlertPayload {
   canaryId: string;
   detectionId: string;
+  correlationId: string;
   confidenceScore: number;
   source: string;
   hash: string;

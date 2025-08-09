@@ -3,14 +3,39 @@ import { getLogger } from '../utils/logging.js';
 import { canaryRoutes } from './routes/canaries.js';
 import { RepositoryError, NotFoundError } from '../repositories/errors.js';
 import { DetectionEngine } from '../services/detectionEngine.js';
+import { CanaryRepository } from '../repositories/canaryRepository.js';
 import { simulateDetectionBodySchema } from './schemas/canarySchemas.js';
 import { registry } from '../metrics/index.js';
 
 export async function buildServer() {
   const app = Fastify({ logger: getLogger() });
 
+  // Detection engine (singleton for process)
+  const detectionEngine = new DetectionEngine();
+  detectionEngine.start();
+
   app.get('/healthz', async () => {
-    return { status: 'ok', time: new Date().toISOString() };
+    const canaryRepo = new CanaryRepository();
+    const [canaries, detectionInfo] = await Promise.all([
+      canaryRepo.list(),
+      (async () => detectionEngine.info())(),
+    ]);
+    const detectionCount = detectionInfo.totalDetections; // quick counter
+    return {
+      status: 'ok',
+      time: new Date().toISOString(),
+      build: {
+        version: process.env.npm_package_version || 'dev',
+        node: process.version,
+      },
+      canaries: { count: canaries.length },
+      detections: { processed: detectionCount },
+      engine: {
+        lastDetectionProcessedAt: detectionInfo.lastDetectionProcessedAt,
+        pollingLoopLastTick: detectionInfo.pollingLoopLastTick,
+        running: detectionInfo.running,
+      },
+    };
   });
 
   app.get('/metrics', async (_req, reply) => {
@@ -22,9 +47,7 @@ export async function buildServer() {
   // Canary routes
   await app.register(canaryRoutes);
 
-  // Detection engine (singleton for process)
-  const detectionEngine = new DetectionEngine();
-  detectionEngine.start();
+  // (engine already started above)
 
   app.post('/v1/simulate/detection', async (req, reply) => {
     const parsed = simulateDetectionBodySchema.safeParse(req.body);

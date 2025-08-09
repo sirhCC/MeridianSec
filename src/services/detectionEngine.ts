@@ -5,6 +5,7 @@ import { loadConfig } from '../config/index.js';
 import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
 import { loadAlertingFromEnv, AlertingService, getAlertMetrics } from './alerting.js';
+import { randomUUID } from 'crypto';
 import { detectionsTotal, detectionPipelineLatencySeconds } from '../metrics/index.js';
 
 export interface DetectionEvents {
@@ -26,6 +27,9 @@ export class DetectionEngine {
   private cfg = loadConfig();
   private canaryRepo = new CanaryRepository();
   private alerting: AlertingService | null = null;
+  private lastDetectionProcessedAt: Date | null = null;
+  private pollingLoopLastTick: Date | null = null;
+  private totalDetections = 0;
 
   constructor(opts?: { bus?: EventBus<DetectionEvents>; repo?: DetectionRepository }) {
     this.bus = opts?.bus || new EventBus<DetectionEvents>();
@@ -68,6 +72,7 @@ export class DetectionEngine {
   private async handle(evt: DetectionEvents['detectionProduced']) {
     if (!this.running) return;
     const start = process.hrtime.bigint();
+    const correlationId = randomUUID();
     const latest = await this.repo.getLatestForCanary(evt.canaryId);
     const prevHash = latest?.hashChainCurr || null;
     const canonical = JSON.stringify({
@@ -89,18 +94,26 @@ export class DetectionEngine {
       hashChainCurr: currHash,
     });
     getLogger().info(
-      { detectionId: record.id, canaryId: record.canaryId, hash: record.hashChainCurr },
+      {
+        detectionId: record.id,
+        canaryId: record.canaryId,
+        hash: record.hashChainCurr,
+        correlationId,
+      },
       'canary-detection',
     );
     const end = process.hrtime.bigint();
     const seconds = Number(end - start) / 1e9;
     detectionPipelineLatencySeconds.observe(seconds);
     detectionsTotal.inc({ source: record.source });
+    this.lastDetectionProcessedAt = new Date();
+    this.totalDetections += 1;
     // Alerting if threshold met
     if (this.alerting) {
       await this.alerting.maybeAlert({
         canaryId: record.canaryId,
         detectionId: record.id,
+        correlationId,
         confidenceScore: record.confidenceScore,
         source: record.source,
         hash: record.hashChainCurr,
@@ -108,7 +121,7 @@ export class DetectionEngine {
       });
       const am = getAlertMetrics();
       getLogger().debug(
-        { alertsSent: am.alertsSent, alertsFailed: am.alertsFailed },
+        { alertsSent: am.alertsSent, alertsFailed: am.alertsFailed, correlationId },
         'alert-metrics',
       );
     }
@@ -117,6 +130,7 @@ export class DetectionEngine {
   private async pollTick() {
     if (!this.running) return;
     try {
+      this.pollingLoopLastTick = new Date();
       const canaries = await this.canaryRepo.list();
       if (canaries.length === 0) return;
       if (process.env.POLL_ALL_CANARIES === '1') {
@@ -142,5 +156,15 @@ export class DetectionEngine {
     } catch (err) {
       getLogger().warn({ err }, 'pollTick failed');
     }
+  }
+
+  // Health info snapshot
+  info() {
+    return {
+      running: this.running,
+      lastDetectionProcessedAt: this.lastDetectionProcessedAt?.toISOString() || null,
+      pollingLoopLastTick: this.pollingLoopLastTick?.toISOString() || null,
+      totalDetections: this.totalDetections,
+    };
   }
 }
