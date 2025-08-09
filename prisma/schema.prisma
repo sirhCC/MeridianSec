@@ -56,5 +56,6 @@ model Detection {
   alertSent       Boolean  @default(false)
   hashChainPrev   String?
   hashChainCurr   String
+  correlationId   String   @default(cuid())
   @@index([canaryId, detectionTime])
 }
