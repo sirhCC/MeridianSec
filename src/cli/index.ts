@@ -4,16 +4,16 @@ import { loadConfig } from '../config/index.js';
 import { getLogger } from '../utils/logging.js';
 import { randomSalt, hashSecret } from '../utils/hashChain.js';
 import { PrismaClient } from '@prisma/client';
+import http from 'http';
 import fs from 'fs';
 import path from 'path';
 
 const program = new Command();
 const prisma = new PrismaClient();
+const USE_API = process.env.USE_API === '1';
+const API_BASE = process.env.API_BASE || 'http://localhost:3000';
 
-program
-  .name('canary')
-  .description('Canary secrets lifecycle CLI (MVP)')
-  .version('0.1.0');
+program.name('canary').description('Canary secrets lifecycle CLI (MVP)').version('0.1.0');
 
 program
   .command('init')
@@ -58,14 +58,68 @@ program
     const mockSecret = 'MOCK' + Math.random().toString(36).slice(2, 12).toUpperCase();
     const secretHash = hashSecret(mockSecret, salt);
     const normalizedType = opts.type.toLowerCase() === 'aws-iam' ? 'AWS_IAM_KEY' : 'FAKE_API_KEY';
-    const canary = await prisma.canary.create({ data: { type: normalizedType, active: true, currentSecretHash: secretHash, salt } });
+
+    if (USE_API) {
+      // Call API endpoint instead of direct DB
+      const payload = JSON.stringify({
+        type: normalizedType,
+        currentSecretHash: secretHash,
+        salt,
+        placements: (opts.placement || []).map((p) => ({
+          locationType: 'REPO_FILE',
+          locationRef: p,
+        })),
+      });
+      const url = new URL('/v1/canaries', API_BASE);
+      const resBody = await httpRequest(
+        {
+          method: 'POST',
+          hostname: url.hostname,
+          port: url.port || (url.protocol === 'https:' ? 443 : 80),
+          path: url.pathname,
+          protocol: url.protocol,
+          headers: {
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(payload).toString(),
+          },
+        },
+        payload,
+      );
+      const parsed = JSON.parse(resBody);
+      if (parsed.error) {
+        console.error('API Error:', parsed.error);
+        process.exit(1);
+      }
+      console.log(JSON.stringify({ id: parsed.canary.id, mockSecret }, null, 2));
+      return;
+    }
+
+    // Legacy direct DB path
+    const canary = await prisma.canary.create({
+      data: { type: normalizedType, active: true, currentSecretHash: secretHash, salt },
+    });
     if (opts.placement) {
       for (const p of opts.placement) {
-        await prisma.placement.create({ data: { canaryId: canary.id, locationType: 'REPO_FILE', locationRef: p } });
+        await prisma.placement.create({
+          data: { canaryId: canary.id, locationType: 'REPO_FILE', locationRef: p },
+        });
       }
     }
     console.log(JSON.stringify({ id: canary.id, mockSecret }, null, 2));
   });
+
+function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = http.request(options, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (d) => chunks.push(d));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    });
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error(err);

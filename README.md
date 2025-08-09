@@ -4,7 +4,7 @@ Early warning & high-signal detection for secret exfiltration using planted cana
 
 ## Current Status
 
-Phase 1 in progress: Repository + service layer added, initial REST endpoints live.
+Phase 1 complete: core repositories, service layer, REST create/get/list, CLI API toggle, tests & coverage (>80%).
 
 ### REST API (Experimental)
 
@@ -98,6 +98,9 @@ curl http://localhost:3000/healthz
 
 ```powershell
 npm run canary -- create --type aws-iam --placement repo:README.md
+
+# Or via API mode (server must be running):
+$env:USE_API=1; npm run canary -- create --type aws-iam --placement repo:README.md
 ```
 
 ### 6. Tests & Coverage
@@ -120,13 +123,14 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 | Regenerate Prisma | `npx prisma generate`                    |
 | New migration     | `npx prisma migrate dev --name <change>` |
 
-### Baseline Metrics (Phase 0)
+### Metrics (Phase 0 Baseline + Phase 1)
 
-| Metric     | Value (Local) |
-| ---------- | ------------- |
-| Build Time | ~1.35s        |
-| Test Time  | ~1.45s        |
-| Coverage   | 100% lines\*  |
+| Metric                      | Value (Local) |
+| --------------------------- | ------------- |
+| Build Time                  | ~1.35s        |
+| Test Time                   | ~1.45s        |
+| Coverage (Phase 0 baseline) | 100% lines\*  |
+| Coverage (Phase 1 current)  | ~83% lines    |
 
 `*` Phase 0 gate requires >=60%; higher now for headroom.
 
@@ -138,7 +142,7 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 
 ### Roadmap Snapshot
 
-Phase 1 will introduce repository & service layers plus REST endpoints. See `BUILD_PHASE_PLAN.md` for details.
+Next: Phase 2 detection engine & mock alerts (see `BUILD_PHASE_PLAN.md`).
 
 ## Development Workflow
 

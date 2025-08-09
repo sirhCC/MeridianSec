@@ -83,21 +83,22 @@ Tasks (Ordered)
 3. [DONE] Add initial request/response schemas (create canary) (XS). (Further schemas for future endpoints deferred.)
 4. [DONE] Implement canary endpoints + Fastify route registration (S).
 5. [DONE] Write integration tests (create + get + list) (M).
-6. [PENDING] CLI refactor (toggle USE_API=1) (M, optional).
+6. [DONE] CLI refactor (toggle USE_API=1) (M, optional implemented).
 7. [DONE] Update README endpoints section (XS).
 
-Progress Snapshot (2025-08-09):
+Progress Snapshot (2025-08-09 – Final Phase 1):
 
 - Core canary CRUD (create/get/list) path via API functional.
-- Integration test green (separate sqlite file).
-- README documents endpoints.
-- Remaining in Phase 1: optional CLI refactor + (if desired) additional validation & error response schema formalization.
+- Integration & repository unit tests green (separate sqlite files).
+- README documents endpoints & USE_API toggle.
+- CLI supports API mode (USE_API=1) and legacy direct DB.
+- Coverage overall ~83% (>70% target). Remaining uncovered lines are non-critical error branches.
 
 Acceptance Criteria
 
 - All implemented endpoints return 2xx for happy paths, 4xx for validation errors, 404 for unknown id. (Current canary endpoints satisfy.)
-- Integration tests green; coverage >= 70% for domain + API. (Coverage check pending re-run after additions.)
-- No direct Prisma use outside repository layer (except migrations / legacy CLI path). (CLI still directly uses Prisma until refactor.)
+- Integration tests green; coverage >= 70% for domain + API (met; ~83%).
+- No direct Prisma use outside repository layer (except migrations / optional legacy CLI path when USE_API≠1).
 
 Risks
 

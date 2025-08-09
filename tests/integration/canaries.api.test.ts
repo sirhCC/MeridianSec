@@ -42,6 +42,22 @@ describe('Canary API', () => {
     expect(Array.isArray(listBody.canaries)).toBe(true);
     expect(listBody.canaries.length).toBeGreaterThan(0);
   });
+
+  it('returns 400 on validation error (missing salt)', async () => {
+    const currentSecretHash = crypto.randomBytes(16).toString('hex');
+    const resp = await app.inject({
+      method: 'POST',
+      url: '/v1/canaries',
+      payload: {
+        type: 'AWS_IAM_KEY',
+        currentSecretHash,
+        // salt omitted intentionally
+      },
+    });
+    expect(resp.statusCode).toBe(400);
+    const body = resp.json();
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+  });
 });
 
 // Ensure prisma disconnect after tests
