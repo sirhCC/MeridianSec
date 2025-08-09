@@ -12,6 +12,14 @@ export const createCanaryBodySchema = z.object({
   salt: z.string().min(1),
 });
 
+export const simulateDetectionBodySchema = z.object({
+  canaryId: z.string().min(1),
+  source: z.enum(['SIM', 'CLOUDTRAIL', 'MANUAL']).default('SIM'),
+  rawEventJson: z.string().default('{}'),
+  actorIdentity: z.string().optional(),
+  confidenceScore: z.number().min(0).max(100).default(80),
+});
+
 export type CreateCanaryBody = z.infer<typeof createCanaryBodySchema>;
 
 interface InternalCanaryLike {
