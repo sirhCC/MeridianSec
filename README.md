@@ -1,10 +1,10 @@
 # Secrets Canary (MVP Skeleton)
 
-Early warning & high-signal detection for secret exfiltration using planted canary credentials.
+Early warning & high-signal detection for secret exfiltration using planted (decoy) credentials, with integrity‑preserving hash chaining, alert fan‑out, and deep observability (metrics, structured logs w/ correlation IDs, enriched health snapshot).
 
 ## Current Status
 
-Phase 1 complete: core repositories, service layer, REST create/get/list, CLI API toggle, tests & coverage (>80%).
+Phase 5 complete: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
 
 ### REST API (Experimental)
 
@@ -12,7 +12,7 @@ Base URL: `http://localhost:3000`
 
 | Method | Path                        | Description                     | Body (JSON)                                          |
 | ------ | --------------------------- | ------------------------------- | ---------------------------------------------------- |
-| GET    | /healthz                    | Health probe                    | -                                                    |
+| GET    | /healthz                    | Health probe (enriched)         | -                                                    |
 | POST   | /v1/canaries                | Create canary + placements      | {type, currentSecretHash, salt, placements?}         |
 | GET    | /v1/canaries                | List canaries                   | -                                                    |
 | GET    | /v1/canaries/:id            | Get canary + placements         | -                                                    |
@@ -146,18 +146,19 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 
 The service exposes a Prometheus text endpoint at `GET /metrics` (default Fastify listen address / port you configure). It includes both default `prom-client` process metrics and custom domain metrics.
 
-Custom metric inventory:
+Custom metric inventory (current):
 
 | Name                                 | Type      | Labels                   | Description                                                                                    |
 | ------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
 | `detections_total`                   | Counter   | `source`                 | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL).                              |
 | `detection_pipeline_latency_seconds` | Histogram | (none)                   | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
-| `alerts_sent_total`                  | Counter   | `adapter`                | Successful alerts sent (StdoutAlertChannel, WebhookAlertChannel, etc).                         |
-| `alert_failures_total`               | Counter   | `adapter`                | Alerts that exhausted retries and failed.                                                      |
+| `alerts_sent_total`                  | Counter   | `adapter`,`status`       | Successful alerts sent (status currently always 'sent').                                       |
+| `alert_failures_total`               | Counter   | `adapter`,`reason`       | Alerts that exhausted retries and failed (reason = error name).                                |
 | `rotations_total`                    | Counter   | (none)                   | Secret rotations performed.                                                                    |
 | `integrity_verifications_total`      | Counter   | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome.                                   |
+| `integrity_failures_total`           | Counter   | `reason`                 | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH).                              |
 
-Environment variables impacting metrics emission:
+Environment variables impacting metrics & alert flow:
 
 | Variable            | Purpose                                                                                 |
 | ------------------- | --------------------------------------------------------------------------------------- |
@@ -231,9 +232,30 @@ Suggested Grafana panels:
 curl http://localhost:3000/metrics | Select-String detections_total
 ```
 
-#### Alerting & Signature Notes
+#### Alerting, Signatures & Correlation IDs
 
-When `ALERT_HMAC_SECRET` is set, webhook alerts include `x-canary-signature` (HMAC SHA-256 hex) over a canonical JSON serialization (sorted keys recursively). This can be validated downstream to ensure integrity & authenticity of alert payloads.
+When `ALERT_HMAC_SECRET` is set, webhook alerts include `x-canary-signature` (HMAC SHA-256 hex) over a canonical JSON serialization (sorted keys recursively). This is used to verify downstream integrity & authenticity.
+
+Alert payload (core fields):
+
+```jsonc
+{
+  "canaryId": "...",
+  "detectionId": "...",
+  "correlationId": "<uuid-v4>",
+  "confidenceScore": 75,
+  "source": "SIM",
+  "hash": "<hash-chain-curr>",
+  "createdAt": "2025-08-09T12:34:56.789Z",
+  "message": "Detection <id> (canary <id>) score 75 >= 70",
+}
+```
+
+Use `correlationId` to tie together:
+
+- Detection ingestion log: `msg":"canary-detection"`
+- Alert emission log: `msg":"detection-alert"`
+- Internal alert metrics summary: `msg":"alert-metrics"`
 
 Recommended downstream validation pseudocode:
 
@@ -242,12 +264,31 @@ const expected = hmac(secret, canonicalize(body));
 if (headerSig !== expected) reject();
 ```
 
-Future ideas (not yet implemented):
+### Health Endpoint Details
 
-- Counter for alert retries.
-- Reason label on `alert_failures_total` (e.g., network, 5xx, timeout).
-- Histogram on rotation latency.
-- Gauge for last successful poll tick timestamp.
+`GET /healthz` returns operational snapshot:
+
+```jsonc
+{
+  "status": "ok",
+  "time": "2025-08-09T12:34:56.123Z",
+  "build": { "version": "1.0.0", "node": "v20.11.0" },
+  "canaries": { "count": 5 },
+  "detections": { "processed": 42 },
+  "engine": {
+    "lastDetectionProcessedAt": "2025-08-09T12:34:40.900Z",
+    "pollingLoopLastTick": "2025-08-09T12:34:55.500Z",
+    "running": true,
+  },
+}
+```
+
+### Future Ideas (Backlog Excerpts)
+
+- Rotation latency histogram.
+- Poll loop last tick exported as metric (gauge).
+- Alert retry counter + backoff histogram.
+- Structured audit log export sink.
 
 ### Troubleshooting
 
@@ -257,7 +298,7 @@ Future ideas (not yet implemented):
 
 ### Roadmap Snapshot
 
-Next: Phase 2 detection engine & mock alerts (see `BUILD_PHASE_PLAN.md`).
+See `BUILD_PHASE_PLAN.md` for phased roadmap & completed milestones.
 
 ## Development Workflow
 
