@@ -45,6 +45,7 @@ describe('Rotation & Detection Repositories', () => {
       rawEventJson: '{}',
       confidenceScore: 90,
       hashChainCurr: 'abc123',
+      correlationId: crypto.randomBytes(8).toString('hex'),
     });
     const list = await detectionRepo.listByCanary(canary.id);
     expect(list.length).toBe(1);

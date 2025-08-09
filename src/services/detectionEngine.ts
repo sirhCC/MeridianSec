@@ -96,6 +96,7 @@ export class DetectionEngine {
       confidenceScore: evt.confidenceScore,
       hashChainPrev: prevHash,
       hashChainCurr: currHash,
+      correlationId,
     });
     getLogger().info(
       {

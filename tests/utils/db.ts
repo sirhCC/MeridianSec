@@ -1,5 +1,6 @@
 import { execSync } from 'child_process';
 import fs from 'fs';
+import path from 'path';
 
 // Ensures the Prisma schema is applied to the current test database.
 // Designed for ephemeral SQLite DBs referenced by process.env.DATABASE_URL.
@@ -14,12 +15,17 @@ export function ensureTestDb() {
       throw new Error('Failed to remove existing test DB file: ' + (e as Error).message);
     }
   }
+  const migrationsDir = path.resolve(process.cwd(), 'prisma', 'migrations');
+  const hasMigrations = fs.existsSync(migrationsDir) && fs.readdirSync(migrationsDir).length > 0;
+  // For test environments with migrations, use migrate reset to ensure a clean fresh schema (non-interactive)
+  const cmd = hasMigrations
+    ? 'npx prisma migrate reset --force --skip-generate --skip-seed'
+    : 'npx prisma db push --skip-generate --accept-data-loss';
   try {
-    execSync('npx prisma db push --skip-generate --accept-data-loss', {
-      stdio: 'ignore',
-      env: process.env,
-    });
+    execSync(cmd, { stdio: 'ignore', env: process.env });
   } catch (err) {
-    throw new Error('Failed to push Prisma schema for test DB: ' + (err as Error).message);
+    throw new Error(
+      'Failed to apply Prisma schema/migrations for test DB: ' + (err as Error).message,
+    );
   }
 }

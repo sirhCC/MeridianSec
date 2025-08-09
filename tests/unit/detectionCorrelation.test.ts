@@ -13,6 +13,7 @@ interface MockRecord {
   confidenceScore: number;
   rawEventJson: string;
   actorIdentity?: string;
+  correlationId: string;
 }
 class MockDetectionRepo {
   private rec: MockRecord | null = null;
@@ -31,6 +32,7 @@ class MockDetectionRepo {
       confidenceScore: data.confidenceScore,
       rawEventJson: data.rawEventJson,
       actorIdentity: data.actorIdentity,
+      correlationId: 'corr-test',
     };
     return this.rec;
   }

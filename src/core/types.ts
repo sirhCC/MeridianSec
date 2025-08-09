@@ -41,5 +41,5 @@ export interface Detection {
   alertSent: boolean;
   hashChainPrev?: string | null;
   hashChainCurr: string;
-  correlationId?: string | null; // NOTE: persistence deferred
+  correlationId: string; // persisted correlation trace id
 }

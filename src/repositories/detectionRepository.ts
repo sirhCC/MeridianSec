@@ -15,6 +15,7 @@ function map(row: PrismaDetection): Detection {
     alertSent: row.alertSent,
     hashChainPrev: row.hashChainPrev,
     hashChainCurr: row.hashChainCurr,
+    correlationId: row.correlationId,
   };
 }
 
@@ -26,6 +27,7 @@ export interface CreateDetectionInput {
   confidenceScore: number;
   hashChainPrev?: string | null;
   hashChainCurr: string;
+  correlationId: string;
 }
 
 export class DetectionRepository {
@@ -61,6 +63,15 @@ export class DetectionRepository {
       return row ? map(row) : null;
     } catch (err) {
       throw new RepositoryError(`Failed to get latest detection for canary ${canaryId}`, err);
+    }
+  }
+
+  async findByCorrelationId(correlationId: string): Promise<Detection | null> {
+    try {
+      const row = await this.prisma.detection.findFirst({ where: { correlationId } });
+      return row ? map(row) : null;
+    } catch (err) {
+      throw new RepositoryError(`Failed to find detection by correlationId ${correlationId}`, err);
     }
   }
 }
