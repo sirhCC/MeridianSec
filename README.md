@@ -4,7 +4,57 @@ Early warning & high-signal detection for secret exfiltration using planted cana
 
 ## Current Status
 
-Scaffold only: config loader, Fastify health endpoint, CLI init/create mock canary, hash chain utils, Prisma schema, unit test sample.
+Phase 1 in progress: Repository + service layer added, initial REST endpoints live.
+
+### REST API (Experimental)
+
+Base URL: `http://localhost:3000`
+
+| Method | Path             | Description                | Body (JSON)                                  |
+| ------ | ---------------- | -------------------------- | -------------------------------------------- |
+| GET    | /healthz         | Health probe               | -                                            |
+| POST   | /v1/canaries     | Create canary + placements | {type, currentSecretHash, salt, placements?} |
+| GET    | /v1/canaries     | List canaries              | -                                            |
+| GET    | /v1/canaries/:id | Get canary + placements    | -                                            |
+
+Create body example:
+
+```json
+{
+  "type": "AWS_IAM_KEY",
+  "currentSecretHash": "<sha256-or-derived-hash>",
+  "salt": "<random-salt>",
+  "placements": [{ "locationType": "REPO_FILE", "locationRef": "README.md" }]
+}
+```
+
+Response (201):
+
+```json
+{
+  "canary": {
+    "id": "ck...",
+    "type": "AWS_IAM_KEY",
+    "active": true,
+    "createdAt": "2025-08-09T00:00:00.000Z"
+  },
+  "placements": [
+    {
+      "id": "ck...",
+      "canaryId": "ck...",
+      "locationType": "REPO_FILE",
+      "locationRef": "README.md",
+      "insertedAt": "2025-08-09T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+Error format:
+
+```json
+{ "error": { "code": "VALIDATION_ERROR", "message": "..." } }
+```
 
 ## Quick Start (Local Dev)
 
