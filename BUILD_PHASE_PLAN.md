@@ -78,19 +78,26 @@ Deliverables
 
 Tasks (Ordered)
 
-1. Add repository abstraction (M).
-2. Implement service layer (S).
-3. Add request/response schemas (XS each).
-4. Implement endpoints + Fastify route registration (S).
-5. Write integration tests (create + get + list) (M).
-6. CLI refactor (toggle) (M, optional in this phase but recommended).
-7. Update README endpoints section (XS).
+1. [DONE] Add repository abstraction (M).
+2. [DONE] Implement service layer (S).
+3. [DONE] Add initial request/response schemas (create canary) (XS). (Further schemas for future endpoints deferred.)
+4. [DONE] Implement canary endpoints + Fastify route registration (S).
+5. [DONE] Write integration tests (create + get + list) (M).
+6. [PENDING] CLI refactor (toggle USE_API=1) (M, optional).
+7. [DONE] Update README endpoints section (XS).
+
+Progress Snapshot (2025-08-09):
+
+- Core canary CRUD (create/get/list) path via API functional.
+- Integration test green (separate sqlite file).
+- README documents endpoints.
+- Remaining in Phase 1: optional CLI refactor + (if desired) additional validation & error response schema formalization.
 
 Acceptance Criteria
 
-- All endpoints return 2xx for happy paths, 4xx for validation errors, 404 for unknown id.
-- Integration tests green; coverage >= 70% for domain + API.
-- No direct Prisma use outside repository layer (except migrations).
+- All implemented endpoints return 2xx for happy paths, 4xx for validation errors, 404 for unknown id. (Current canary endpoints satisfy.)
+- Integration tests green; coverage >= 70% for domain + API. (Coverage check pending re-run after additions.)
+- No direct Prisma use outside repository layer (except migrations / legacy CLI path). (CLI still directly uses Prisma until refactor.)
 
 Risks
 
