@@ -10,12 +10,13 @@ Phase 1 complete: core repositories, service layer, REST create/get/list, CLI AP
 
 Base URL: `http://localhost:3000`
 
-| Method | Path             | Description                | Body (JSON)                                  |
-| ------ | ---------------- | -------------------------- | -------------------------------------------- |
-| GET    | /healthz         | Health probe               | -                                            |
-| POST   | /v1/canaries     | Create canary + placements | {type, currentSecretHash, salt, placements?} |
-| GET    | /v1/canaries     | List canaries              | -                                            |
-| GET    | /v1/canaries/:id | Get canary + placements    | -                                            |
+| Method | Path                   | Description                | Body (JSON)                                          |
+| ------ | ---------------------- | -------------------------- | ---------------------------------------------------- |
+| GET    | /healthz               | Health probe               | -                                                    |
+| POST   | /v1/canaries           | Create canary + placements | {type, currentSecretHash, salt, placements?}         |
+| GET    | /v1/canaries           | List canaries              | -                                                    |
+| GET    | /v1/canaries/:id       | Get canary + placements    | -                                                    |
+| POST   | /v1/simulate/detection | Simulate detection event   | {canaryId, source?, rawEventJson?, confidenceScore?} |
 
 Create body example:
 
@@ -54,6 +55,12 @@ Error format:
 
 ```json
 { "error": { "code": "VALIDATION_ERROR", "message": "..." } }
+```
+
+Detection simulation example:
+
+```powershell
+curl -X POST http://localhost:3000/v1/simulate/detection -H "Content-Type: application/json" -d '{"canaryId":"<id>","source":"SIM"}'
 ```
 
 ## Quick Start (Local Dev)

@@ -120,13 +120,13 @@ Deliverables
 
 Tasks
 
-1. Event bus abstraction (XS) – simple emitter.
-2. Detection repository operations (XS) (fetch last hash, insert in transaction).
-3. Hash chain linkage & util test for collision/tamper (S).
-4. Implement poll loop (M).
-5. Simulate endpoint (S).
-6. Console alert adapter (XS).
-7. E2E test harness (M).
+1. [DONE] Event bus abstraction (XS) – simple emitter.
+2. [DONE] Detection repository operations (existing `getLatestForCanary`).
+3. [IN PROGRESS] Hash chain linkage (implemented in detection engine) & future tamper test.
+4. [PENDING] Implement poll loop (M) (current engine is event-driven only).
+5. [DONE] Simulate endpoint (S).
+6. [DONE] Console alert adapter (reuses structured logger with `canary-detection`).
+7. [IN PROGRESS] E2E test harness (basic simulate test added; needs detection retrieval & chain verification test).
 
 Acceptance Criteria
 
