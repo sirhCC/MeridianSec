@@ -70,8 +70,8 @@ Risks & Mitigations
 
 Tasks (Ordered)
 
-6. [DONE] CLI refactor (toggle USE_API=1) (M, optional implemented).
-7. [DONE] Update README endpoints section (XS).
+1. [DONE] CLI refactor (toggle USE_API=1) (M, optional implemented).
+2. [DONE] Update README endpoints section (XS).
 
 Progress Snapshot (2025-08-09 – Final Phase 1):
 
@@ -96,11 +96,13 @@ Deliverables
 - Detection record persistence (including hash chain link).
 - Console alert dispatcher (structured log line `alert` level or dedicated channel).
 
-3. [DONE] Hash chain linkage + tamper verification test (integrity check later formalized).
-4. [DONE] Implement poll loop (M) – gated by `ENABLE_POLL_LOOP` for deterministic tests.
-5. [DONE] Simulate endpoint (S).
-6. [DONE] Console alert adapter (reuses structured logger with `canary-detection`).
-7. [DONE] E2E test harness (simulate -> persistence -> chain verification).
+Tasks
+
+1. [DONE] Hash chain linkage + tamper verification test (integrity check later formalized).
+2. [DONE] Implement poll loop (M) – gated by `ENABLE_POLL_LOOP` for deterministic tests.
+3. [DONE] Simulate endpoint (S).
+4. [DONE] Console alert adapter (reuses structured logger with `canary-detection`).
+5. [DONE] E2E test harness (simulate -> persistence -> chain verification).
 
 Progress Snapshot (2025-08-09): Poll loop operational & feature‑flagged; detections persisted with hash chain; integrity tamper scenario validated.
 
@@ -109,7 +111,8 @@ Notes: Poll loop disabled by default in test runs (flag only enabled in dedicate
 Acceptance Criteria
 
 - Simulate endpoint triggers detection < 2s median.
-  Risks
+
+Risks
 
 - Race on hash chain when simultaneous detections: mitigate via transaction & SELECT last ordered by time.
 
@@ -122,7 +125,8 @@ Acceptance Criteria
 Deliverables
 
 - Rotation service (generate new mock secret, update hash, insert rotation record).
-  Tasks
+
+Tasks
 
 1. [DONE] Rotation service + test (S).
 2. [DONE] API route + CLI wiring (S).
@@ -135,7 +139,8 @@ Progress Snapshot (2025-08-09 – Updated): Rotation and integrity features comp
 Adjusted Acceptance Criteria Tracking:
 
 - Rotation lifecycle: MET (service/endpoint/CLI implemented; test validates hash change & sequential rotations).
-  Acceptance Criteria
+
+Acceptance Criteria
 
 - Rotation log includes old & new secret hash (different).
 - Verify-chain command returns success exit code; failure if manipulated test scenario.
@@ -152,6 +157,8 @@ Deliverables
 - Retry with exponential backoff (e.g., 2 attempts, delays 1s/3s) before marking failure.
 - Dead-letter table or log entry for final failures.
 - Tests mocking Slack endpoint (nock or manual minimal server) verifying signature & retry.
+
+Tasks
 
 1. Canonical JSON serializer (stable key order) (XS).
 2. Slack adapter implementation (S).
@@ -179,7 +186,13 @@ Deliverables
 - Health endpoint enriched: detection loop last heartbeat timestamp, queue depth.
 - Structured log correlation id per detection (uuid v4).
 
-Tasks 5. Tests: metrics scrape includes expected counters after simulated detection (S).
+Tasks
+
+1. Metrics module (prom-client) (S).
+2. Instrument detection pipeline (XS).
+3. Augment log context (XS).
+4. Expanded health route (S).
+5. Tests: metrics scrape includes expected counters after simulated detection (S).
 
 Acceptance Criteria
 
@@ -198,7 +211,13 @@ Deliverables
 - Release artifact zip includes SBOM (cyclonedx-npm) + coverage summary.
 - Changelog generation (conventional commits) & version bump script.
 
-Tasks 5. Document security posture summary (XS).
+Tasks
+
+1. Enforce coverage threshold in test script (XS).
+2. Add SBOM generation to release workflow (S).
+3. Add changelog (auto-changelog or conventional-changelog) (S).
+4. CI step: run integrity verifier (XS).
+5. Document security posture summary (XS).
 
 Acceptance Criteria
 
@@ -238,7 +257,8 @@ Deliverables
 - Lock contention mitigation (serialize detection writes or WAL mode set).
 - Graceful shutdown (stop detection loop, flush pending alerts).
 - Comprehensive README + architecture section diagrams (Mermaid).
-- Onboarding checklist doc.
+
+* Onboarding checklist doc.
 
 Tasks
 

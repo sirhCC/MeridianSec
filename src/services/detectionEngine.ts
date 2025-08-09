@@ -4,7 +4,7 @@ import { CanaryRepository } from '../repositories/canaryRepository.js';
 import { loadConfig } from '../config/index.js';
 import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
-import { loadAlertingFromEnv, AlertingService } from './alerting.js';
+import { loadAlertingFromEnv, AlertingService, getAlertMetrics } from './alerting.js';
 
 export interface DetectionEvents {
   [k: string]: unknown;
@@ -100,6 +100,11 @@ export class DetectionEngine {
         hash: record.hashChainCurr,
         createdAt: record.detectionTime.toISOString(),
       });
+      const am = getAlertMetrics();
+      getLogger().debug(
+        { alertsSent: am.alertsSent, alertsFailed: am.alertsFailed },
+        'alert-metrics',
+      );
     }
   }
 

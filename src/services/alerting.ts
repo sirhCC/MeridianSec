@@ -1,5 +1,14 @@
 import { getLogger } from '../utils/logging.js';
 
+// Basic in-memory metrics (to be exported later via /metrics when implemented)
+const metrics = {
+  alertsSent: 0,
+  alertsFailed: 0,
+};
+export function getAlertMetrics() {
+  return { ...metrics };
+}
+
 export interface AlertChannel {
   send(payload: AlertPayload): Promise<void>;
 }
@@ -30,14 +39,13 @@ export interface WebhookConfig {
 export class WebhookAlertChannel implements AlertChannel {
   constructor(private cfg: WebhookConfig) {}
   async send(payload: AlertPayload): Promise<void> {
-    // Use global fetch (Node 18+)
     const res = await fetch(this.cfg.url, {
       method: this.cfg.method || 'POST',
       headers: { 'content-type': 'application/json', ...(this.cfg.headers || {}) },
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
-      getLogger().error({ status: res.status }, 'webhook alert failed');
+      throw new Error(`webhook responded ${res.status}`);
     }
   }
 }
@@ -64,9 +72,27 @@ export class AlertingService {
     const message = `Detection ${payload.detectionId} (canary ${payload.canaryId}) score ${payload.confidenceScore} >= ${this.opts.threshold}`;
     const full: AlertPayload = { ...payload, message };
     await Promise.all(
-      this.channels.map((c) =>
-        c.send(full).catch((err) => getLogger().error({ err }, 'alert send failed')),
-      ),
+      this.channels.map(async (c) => {
+        const maxAttempts = 3;
+        let attempt = 0;
+        while (attempt < maxAttempts) {
+          try {
+            await c.send(full);
+            metrics.alertsSent += 1;
+            return;
+          } catch (err) {
+            attempt++;
+            if (attempt >= maxAttempts) {
+              metrics.alertsFailed += 1;
+              getLogger().error({ err, attempts: attempt }, 'alert send failed');
+              return;
+            }
+            // exponential backoff (50ms, 150ms)
+            const delay = 50 * Math.pow(3, attempt - 1);
+            await new Promise((r) => setTimeout(r, delay));
+          }
+        }
+      }),
     );
   }
 }
