@@ -3,6 +3,7 @@ import { createCanaryBodySchema, toPublicCanary } from '../schemas/canarySchemas
 import { CanaryService } from '../../services/canaryService.js';
 import { NotFoundError } from '../../repositories/errors.js';
 import { DetectionRepository } from '../../repositories/detectionRepository.js';
+import { verifyDetectionChain } from '../../utils/chainIntegrity.js';
 
 const service = new CanaryService();
 
@@ -56,5 +57,23 @@ export async function canaryRoutes(app: FastifyInstance) {
     // sort ascending for hash chain linkage verification convenience
     detections.sort((a, b) => a.detectionTime.getTime() - b.detectionTime.getTime());
     return { detections };
+  });
+
+  // Verify detection hash chain integrity
+  app.get<{ Params: IdParams }>('/v1/canaries/:id/detections/verify', async (req, reply) => {
+    const id = req.params.id;
+    const detRepo = new DetectionRepository();
+    try {
+      await service.get(id);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: err.message } });
+      }
+      throw err;
+    }
+    const detections = await detRepo.listByCanary(id);
+    detections.sort((a, b) => a.detectionTime.getTime() - b.detectionTime.getTime());
+    const result = verifyDetectionChain(detections);
+    return { canaryId: id, ...result };
   });
 }
