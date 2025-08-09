@@ -1,0 +1,6 @@
+{
+  "database": { "provider": "sqlite", "url": "file:./data/canary.db" },
+  "alerting": { "slackWebhook": "", "webhookSignatureSecret": "dev-signing-key" },
+  "cloudtrail": { "mode": "mock", "pollIntervalMs": 5000 },
+  "logging": { "level": "info", "json": true }
+}

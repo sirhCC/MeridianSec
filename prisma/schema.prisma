@@ -10,27 +10,12 @@ datasource db {
   url      = env("DATABASE_URL") // e.g. file:./data/canary.db
 }
 
-enum CanaryType {
-  AWS_IAM_KEY
-  FAKE_API_KEY
-}
-
-enum PlacementLocationType {
-  REPO_FILE
-  CI_VAR
-  S3_OBJECT
-  ENV_FILE
-}
-
-enum DetectionSource {
-  CLOUDTRAIL
-  SIM
-  MANUAL
-}
+// NOTE: SQLite has no native enum. We model enum-like fields as string columns.
+// Application layer enforces allowed values.
 
 model Canary {
   id                String      @id @default(cuid())
-  type              CanaryType
+  type              String      // allowed: AWS_IAM_KEY, FAKE_API_KEY
   active            Boolean     @default(true)
   currentSecretHash String
   salt              String
@@ -41,12 +26,12 @@ model Canary {
 }
 
 model Placement {
-  id          String                @id @default(cuid())
-  canary      Canary                @relation(fields: [canaryId], references: [id])
-  canaryId    String
-  locationType PlacementLocationType
-  locationRef String
-  insertedAt   DateTime             @default(now())
+  id           String   @id @default(cuid())
+  canary       Canary   @relation(fields: [canaryId], references: [id])
+  canaryId     String
+  locationType String   // allowed: REPO_FILE, CI_VAR, S3_OBJECT, ENV_FILE
+  locationRef  String
+  insertedAt   DateTime @default(now())
 }
 
 model Rotation {
@@ -60,15 +45,15 @@ model Rotation {
 }
 
 model Detection {
-  id              String          @id @default(cuid())
-  canary          Canary          @relation(fields: [canaryId], references: [id])
+  id              String   @id @default(cuid())
+  canary          Canary   @relation(fields: [canaryId], references: [id])
   canaryId        String
-  detectionTime   DateTime        @default(now())
-  source          DetectionSource
+  detectionTime   DateTime @default(now())
+  source          String   // allowed: CLOUDTRAIL, SIM, MANUAL
   rawEventJson    String
   actorIdentity   String?
   confidenceScore Int
-  alertSent       Boolean         @default(false)
+  alertSent       Boolean  @default(false)
   hashChainPrev   String?
   hashChainCurr   String
   @@index([canaryId, detectionTime])
