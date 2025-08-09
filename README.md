@@ -10,13 +10,14 @@ Phase 1 complete: core repositories, service layer, REST create/get/list, CLI AP
 
 Base URL: `http://localhost:3000`
 
-| Method | Path                   | Description                | Body (JSON)                                          |
-| ------ | ---------------------- | -------------------------- | ---------------------------------------------------- |
-| GET    | /healthz               | Health probe               | -                                                    |
-| POST   | /v1/canaries           | Create canary + placements | {type, currentSecretHash, salt, placements?}         |
-| GET    | /v1/canaries           | List canaries              | -                                                    |
-| GET    | /v1/canaries/:id       | Get canary + placements    | -                                                    |
-| POST   | /v1/simulate/detection | Simulate detection event   | {canaryId, source?, rawEventJson?, confidenceScore?} |
+| Method | Path                        | Description                     | Body (JSON)                                          |
+| ------ | --------------------------- | ------------------------------- | ---------------------------------------------------- |
+| GET    | /healthz                    | Health probe                    | -                                                    |
+| POST   | /v1/canaries                | Create canary + placements      | {type, currentSecretHash, salt, placements?}         |
+| GET    | /v1/canaries                | List canaries                   | -                                                    |
+| GET    | /v1/canaries/:id            | Get canary + placements         | -                                                    |
+| POST   | /v1/simulate/detection      | Simulate detection event        | {canaryId, source?, rawEventJson?, confidenceScore?} |
+| GET    | /v1/canaries/:id/detections | List detections (chronological) | -                                                    |
 
 Create body example:
 
