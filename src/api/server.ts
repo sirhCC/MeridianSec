@@ -2,6 +2,8 @@ import Fastify from 'fastify';
 import { getLogger } from '../utils/logging.js';
 import { canaryRoutes } from './routes/canaries.js';
 import { RepositoryError, NotFoundError } from '../repositories/errors.js';
+import { DetectionEngine } from '../services/detectionEngine.js';
+import { simulateDetectionBodySchema } from './schemas/canarySchemas.js';
 
 export async function buildServer() {
   const app = Fastify({ logger: getLogger() });
@@ -12,6 +14,21 @@ export async function buildServer() {
 
   // Canary routes
   await app.register(canaryRoutes);
+
+  // Detection engine (singleton for process)
+  const detectionEngine = new DetectionEngine();
+  detectionEngine.start();
+
+  app.post('/v1/simulate/detection', async (req, reply) => {
+    const parsed = simulateDetectionBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply
+        .status(400)
+        .send({ error: { code: 'VALIDATION_ERROR', message: parsed.error.message } });
+    }
+    detectionEngine.eventBus.emit('detectionProduced', parsed.data);
+    return reply.status(202).send({ accepted: true });
+  });
 
   // Unified error handler (fallback)
   app.setErrorHandler((error, _req, reply) => {
