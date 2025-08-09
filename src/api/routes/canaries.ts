@@ -90,8 +90,13 @@ export async function canaryRoutes(app: FastifyInstance) {
     const result = verifyDetectionChain(detections);
     // Metrics (dynamic import to avoid circular issues in some test contexts)
     try {
-      const { integrityVerificationsTotal } = await import('../../metrics/index.js');
+      const { integrityVerificationsTotal, integrityFailuresTotal } = await import(
+        '../../metrics/index.js'
+      );
       integrityVerificationsTotal.inc({ result: result.valid ? 'valid' : 'invalid' });
+      if (!result.valid && result.breaks[0]) {
+        integrityFailuresTotal.inc({ reason: result.breaks[0].reason });
+      }
     } catch {
       /* ignore if metrics module not available */
     }

@@ -93,13 +93,16 @@ export class AlertingService {
               await c.send(full);
             }
             metrics.alertsSent += 1;
-            alertsSentTotal.inc({ adapter: c.constructor.name });
+            alertsSentTotal.inc({ adapter: c.constructor.name, status: 'sent' });
             return;
           } catch (err) {
             attempt++;
             if (attempt >= maxAttempts) {
               metrics.alertsFailed += 1;
-              alertFailuresTotal.inc({ adapter: c.constructor.name });
+              alertFailuresTotal.inc({
+                adapter: c.constructor.name,
+                reason: (err as Error).name || 'Error',
+              });
               getLogger().error({ err, attempts: attempt }, 'alert send failed');
               return;
             }

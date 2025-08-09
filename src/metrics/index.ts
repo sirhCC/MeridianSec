@@ -13,14 +13,14 @@ export const detectionsTotal = new Counter({
 export const alertsSentTotal = new Counter({
   name: 'alerts_sent_total',
   help: 'Total alerts successfully sent',
-  labelNames: ['adapter'] as const,
+  labelNames: ['adapter', 'status'] as const, // status currently always 'sent' (extensible later)
   registers: [registry],
 });
 
 export const alertFailuresTotal = new Counter({
   name: 'alert_failures_total',
   help: 'Total alert attempts that ultimately failed',
-  labelNames: ['adapter'] as const,
+  labelNames: ['adapter', 'reason'] as const,
   registers: [registry],
 });
 
@@ -35,6 +35,7 @@ export const detectionPipelineLatencySeconds = new Histogram({
 export const rotationsTotal = new Counter({
   name: 'rotations_total',
   help: 'Total canary secret rotations performed',
+  labelNames: ['type'] as const, // type: e.g., 'default', future: 'aws'
   registers: [registry],
 });
 
@@ -43,6 +44,14 @@ export const integrityVerificationsTotal = new Counter({
   name: 'integrity_verifications_total',
   help: 'Total detection chain integrity verifications',
   labelNames: ['result'] as const,
+  registers: [registry],
+});
+
+// Failures (subset) with reason (PREV_MISMATCH|CURR_MISMATCH)
+export const integrityFailuresTotal = new Counter({
+  name: 'integrity_failures_total',
+  help: 'Detection chain integrity verification failures by reason',
+  labelNames: ['reason'] as const,
   registers: [registry],
 });
 

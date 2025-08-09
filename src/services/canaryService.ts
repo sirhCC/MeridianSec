@@ -77,7 +77,7 @@ export class CanaryService {
     // metrics
     try {
       const { rotationsTotal } = await import('../metrics/index.js');
-      rotationsTotal.inc();
+      rotationsTotal.inc({ type: 'default' });
     } catch {
       /* ignore dynamic import errors in tests */
     }
