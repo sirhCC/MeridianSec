@@ -46,6 +46,8 @@ export class DetectionEngine {
     // Start poll loop for mock cloudtrail mode
     if (process.env.ENABLE_POLL_LOOP === '1' && this.cfg.cloudtrail.mode === 'mock') {
       const interval = this.cfg.cloudtrail.pollIntervalMs;
+      // Fire one immediate tick to reduce initial latency in tests
+      void this.pollTick();
       this.pollTimer = setInterval(() => void this.pollTick(), interval);
     }
   }
@@ -91,14 +93,26 @@ export class DetectionEngine {
     try {
       const canaries = await this.canaryRepo.list();
       if (canaries.length === 0) return;
-      // pick a random canary to emit a synthetic detection (low volume)
-      const pick = canaries[Math.floor(Math.random() * canaries.length)];
-      this.bus.emit('detectionProduced', {
-        canaryId: pick.id,
-        source: 'CLOUDTRAIL',
-        rawEventJson: JSON.stringify({ synthetic: true, ts: Date.now() }),
-        confidenceScore: 40,
-      });
+      if (process.env.POLL_ALL_CANARIES === '1') {
+        // Deterministic test mode: emit a detection for every canary each tick
+        for (const c of canaries) {
+          this.bus.emit('detectionProduced', {
+            canaryId: c.id,
+            source: 'CLOUDTRAIL',
+            rawEventJson: JSON.stringify({ synthetic: true, ts: Date.now() }),
+            confidenceScore: 40,
+          });
+        }
+      } else {
+        // Default: pick a random canary to emit a synthetic detection (low volume)
+        const pick = canaries[Math.floor(Math.random() * canaries.length)];
+        this.bus.emit('detectionProduced', {
+          canaryId: pick.id,
+          source: 'CLOUDTRAIL',
+          rawEventJson: JSON.stringify({ synthetic: true, ts: Date.now() }),
+          confidenceScore: 40,
+        });
+      }
     } catch (err) {
       getLogger().warn({ err }, 'pollTick failed');
     }

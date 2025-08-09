@@ -1,5 +1,7 @@
 import { CanaryRepository, CreateCanaryInput } from '../repositories/canaryRepository.js';
 import { PlacementRepository } from '../repositories/placementRepository.js';
+import { RotationRepository } from '../repositories/rotationRepository.js';
+import crypto from 'crypto';
 import type { Canary, Placement } from '../core/types.js';
 
 export interface CreateCanaryRequest {
@@ -13,6 +15,7 @@ export class CanaryService {
   constructor(
     private canaryRepo = new CanaryRepository(),
     private placementRepo = new PlacementRepository(),
+    private rotationRepo = new RotationRepository(),
   ) {}
 
   async create(req: CreateCanaryRequest): Promise<{ canary: Canary; placements: Placement[] }> {
@@ -45,5 +48,36 @@ export class CanaryService {
 
   async list(): Promise<Canary[]> {
     return this.canaryRepo.list();
+  }
+
+  async rotate(
+    id: string,
+    rotatedBy = 'system',
+  ): Promise<{
+    rotation: { oldSecretHash: string; newSecretHash: string };
+    canary: Canary;
+    generatedSecret: string;
+  }> {
+    const canary = await this.canaryRepo.get(id);
+    const oldHash = canary.currentSecretHash;
+    // Generate new mock secret (consistent pattern) and hash with existing salt
+    const newSecret = 'ROT' + crypto.randomBytes(16).toString('hex');
+    // Hashing strategy: sha256(salt + secret)
+    const newHash = crypto
+      .createHash('sha256')
+      .update(canary.salt + newSecret)
+      .digest('hex');
+    const updated = await this.canaryRepo.updateSecretHash(id, newHash);
+    await this.rotationRepo.create({
+      canaryId: id,
+      oldSecretHash: oldHash,
+      newSecretHash: newHash,
+      rotatedBy,
+    });
+    return {
+      rotation: { oldSecretHash: oldHash, newSecretHash: newHash },
+      canary: updated,
+      generatedSecret: newSecret,
+    };
   }
 }

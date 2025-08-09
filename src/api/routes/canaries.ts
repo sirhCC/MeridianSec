@@ -40,6 +40,22 @@ export async function canaryRoutes(app: FastifyInstance) {
     return { canaries: list.map(toPublicCanary) };
   });
 
+  // Rotate canary secret (mock rotation) – returns new hash; secret (mock) only returned once here
+  app.post<{ Params: IdParams }>('/v1/canaries/:id/rotate', async (req, reply) => {
+    const id = req.params.id;
+    try {
+      const { rotation, canary, generatedSecret } = await service.rotate(id, 'api');
+      return reply
+        .status(200)
+        .send({ canary: toPublicCanary(canary), rotation, mockSecret: generatedSecret });
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: err.message } });
+      }
+      throw err;
+    }
+  });
+
   // List detections for a canary (hash chain order ascending by detectionTime)
   app.get<{ Params: IdParams }>('/v1/canaries/:id/detections', async (req, reply) => {
     const id = req.params.id;

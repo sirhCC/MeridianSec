@@ -1,14 +1,23 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildServer } from '../../src/api/server.js';
 import { closePrisma, getPrisma } from '../../src/db/client.js';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { ensureTestDb } from '../utils/db.js';
 
-let app: Awaited<ReturnType<typeof buildServer>>;
+type TestServer = Awaited<ReturnType<typeof import('../../src/api/server.js').buildServer>>;
+let app!: TestServer;
 
 describe('Detection Simulation API', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = 'file:./data/test-detection.db';
+    const dbRel = './data/test-detection.db';
+    const abs = path.resolve(process.cwd(), dbRel.replace(/^\.\//, ''));
+    if (fs.existsSync(abs)) fs.unlinkSync(abs);
+    process.env.DATABASE_URL = 'file:' + dbRel;
     delete process.env.ENABLE_POLL_LOOP; // do not run background poller here
+    await closePrisma(); // reset singleton so new DB URL is honored
+    ensureTestDb();
+    const { buildServer } = await import('../../src/api/server.js');
     app = await buildServer();
   });
 

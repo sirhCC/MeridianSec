@@ -1,20 +1,29 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { buildServer } from '../../src/api/server.js';
 import { closePrisma } from '../../src/db/client.js';
+import { ensureTestDb } from '../utils/db.js';
 import crypto from 'crypto';
-
-let app: Awaited<ReturnType<typeof buildServer>>;
+import fs from 'fs';
+import path from 'path';
+// Use the concrete return type of buildServer to avoid generic mismatch with custom logger types
+type TestServer = Awaited<ReturnType<typeof import('../../src/api/server.js').buildServer>>;
+let app!: TestServer; // assigned in beforeAll via dynamic import
 
 describe('Polling detection loop', () => {
   beforeAll(async () => {
-    process.env.DATABASE_URL = 'file:./data/test-poll.db';
+    const dbRel = './data/test-poll.db';
+    const abs = path.resolve(process.cwd(), dbRel.replace(/^\.\//, ''));
+    if (fs.existsSync(abs)) fs.unlinkSync(abs); // start fresh to avoid many canaries diluting random pick
+    process.env.DATABASE_URL = 'file:' + dbRel;
     process.env.CLOUDTRAIL_POLL_INTERVAL_MS = '150';
     process.env.ENABLE_POLL_LOOP = '1';
+    process.env.POLL_ALL_CANARIES = '1';
+    await closePrisma();
+    ensureTestDb();
+    const { buildServer } = await import('../../src/api/server.js');
     app = await buildServer();
   });
 
   it('emits synthetic detection without simulate endpoint', async () => {
-    // create a canary; then wait for a polling-generated detection
     const currentSecretHash = crypto.randomBytes(16).toString('hex');
     const salt = crypto.randomBytes(8).toString('hex');
     const createResp = await app.inject({
@@ -27,7 +36,6 @@ describe('Polling detection loop', () => {
 
     let detectionsLen = 0;
     for (let i = 0; i < 30; i++) {
-      // up to ~4.5s
       const list = await app.inject({ method: 'GET', url: `/v1/canaries/${canaryId}/detections` });
       if (list.statusCode === 200) {
         detectionsLen = list.json().detections.length;

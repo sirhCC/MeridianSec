@@ -140,6 +140,40 @@ program
     console.log('Chain valid. Last hash:', parsed.lastHash || 'none');
   });
 
+program
+  .command('rotate')
+  .requiredOption('--canary-id <id>', 'Canary id to rotate')
+  .description('Rotate a canary secret (mock). API mode only returns new mockSecret once.')
+  .action(async (opts: { canaryId: string }) => {
+    if (!USE_API) {
+      console.error('rotate requires USE_API=1');
+      process.exit(1);
+    }
+    const url = new URL(`/v1/canaries/${opts.canaryId}/rotate`, API_BASE);
+    const body = await httpRequest(
+      {
+        method: 'POST',
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname,
+        protocol: url.protocol,
+      },
+      '',
+    );
+    const parsed = JSON.parse(body);
+    if (parsed.error) {
+      console.error(parsed.error);
+      process.exit(1);
+    }
+    console.log(
+      JSON.stringify(
+        { id: parsed.canary.id, mockSecret: parsed.mockSecret, rotation: parsed.rotation },
+        null,
+        2,
+      ),
+    );
+  });
+
 function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = http.request(options, (res) => {

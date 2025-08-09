@@ -55,4 +55,16 @@ export class CanaryRepository {
       throw new RepositoryError('Failed to list canaries', err);
     }
   }
+
+  async updateSecretHash(id: string, newHash: string): Promise<Canary> {
+    try {
+      const row = await this.prisma.canary.update({
+        where: { id },
+        data: { currentSecretHash: newHash },
+      });
+      return map(row);
+    } catch (err) {
+      throw new RepositoryError(`Failed to update canary secret hash ${id}`, err);
+    }
+  }
 }

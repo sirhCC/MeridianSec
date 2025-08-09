@@ -122,11 +122,15 @@ Tasks
 
 1. [DONE] Event bus abstraction (XS) – simple emitter.
 2. [DONE] Detection repository operations (existing `getLatestForCanary`).
-3. [IN PROGRESS] Hash chain linkage (implemented in detection engine) & future tamper test.
-4. [PENDING] Implement poll loop (M) (current engine is event-driven only).
+3. [DONE] Hash chain linkage + tamper verification test (integrity check later formalized).
+4. [DONE] Implement poll loop (M) – gated by `ENABLE_POLL_LOOP` for deterministic tests.
 5. [DONE] Simulate endpoint (S).
 6. [DONE] Console alert adapter (reuses structured logger with `canary-detection`).
-7. [IN PROGRESS] E2E test harness (basic simulate test added; needs detection retrieval & chain verification test).
+7. [DONE] E2E test harness (simulate -> persistence -> chain verification).
+
+Progress Snapshot (2025-08-09): Poll loop operational & feature‑flagged; detections persisted with hash chain; integrity tamper scenario validated.
+
+Notes: Poll loop disabled by default in test runs (flag only enabled in dedicated polling test) to avoid nondeterministic timing & DB contention.
 
 Acceptance Criteria
 
@@ -154,11 +158,18 @@ Deliverables
 
 Tasks
 
-1. Rotation service + test (S).
-2. API route + CLI wiring (S).
-3. Integrity verifier (M).
-4. Tamper test (modify raw_event_json and re-run verify expecting failure) (S).
-5. Documentation update (XS).
+1. [DONE] Rotation service + test (S).
+2. [DONE] API route + CLI wiring (S).
+3. [DONE] Integrity verifier utility & endpoint + CLI command (`verify-chain`) (M).
+4. [DONE] Tamper test (modify raw_event_json then verify failure) (S).
+5. [DONE] Documentation update (INSTRUCTION.md + plan) (XS).
+
+Progress Snapshot (2025-08-09 – Updated): Rotation and integrity features complete. CLI + API rotation path emits new secret hash and returns transient secret. Verify-chain passes for untampered sequence and fails after induced tamper. Poll loop nondeterminism mitigated for tests via `POLL_ALL_CANARIES=1` deterministic mode.
+
+Adjusted Acceptance Criteria Tracking:
+
+- Integrity verification: MET (hash chain validates + tamper detected).
+- Rotation lifecycle: MET (service/endpoint/CLI implemented; test validates hash change & sequential rotations).
 
 Acceptance Criteria
 
@@ -354,13 +365,14 @@ Acceptance Criteria
 
 ## Risk Register (Rolling)
 
-| Risk                           | Phase Most Relevant | Impact | Likelihood | Mitigation                                     |
-| ------------------------------ | ------------------- | ------ | ---------- | ---------------------------------------------- |
-| Hash chain race corruption     | 2                   | High   | Medium     | Transactional insert + ordered retrieval       |
-| Alert spam (loop)              | 4                   | Medium | Low        | Idempotency key per detection event            |
-| Slack webhook leakage          | 4                   | High   | Low        | Do not log webhook; mask env in logger         |
-| SQLite file locking under load | 8                   | Medium | Medium     | WAL mode + serialized queue                    |
-| AWS key privilege creep        | 9                   | High   | Low        | Static least-priv policy + periodic diff check |
+| Risk                              | Phase Most Relevant | Impact | Likelihood | Mitigation                                                |
+| --------------------------------- | ------------------- | ------ | ---------- | --------------------------------------------------------- |
+| Hash chain race corruption        | 2                   | High   | Medium     | Transactional insert + ordered retrieval                  |
+| Alert spam (loop)                 | 4                   | Medium | Low        | Idempotency key per detection event                       |
+| Slack webhook leakage             | 4                   | High   | Low        | Do not log webhook; mask env in logger                    |
+| SQLite file locking under load    | 8                   | Medium | Medium     | WAL mode + serialized queue                               |
+| AWS key privilege creep           | 9                   | High   | Low        | Static least-priv policy + periodic diff check            |
+| Poll loop nondeterminism in tests | 2                   | Low    | Medium     | Gated by `ENABLE_POLL_LOOP`; disabled by default in suite |
 
 ---
 

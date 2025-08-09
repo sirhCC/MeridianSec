@@ -1,5 +1,16 @@
 node_modules/
 dist/
+.eslintcache
+*.log
+*.sqlite
+*.db
+data/*.db
+prisma/data/*.db
+coverage/
+/.turbo
+/.vscode
+*.DS_Storenode_modules/
+dist/
 .env
 .idea/
 .vscode/
