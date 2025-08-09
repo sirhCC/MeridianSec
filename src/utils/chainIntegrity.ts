@@ -69,3 +69,32 @@ export function verifyDetectionChain(detections: Detection[]): ChainVerification
 
   return { valid: breaks.length === 0, breaks, lastHash: lastValid };
 }
+
+// Attempt to order detections following the hash chain starting at head (hashChainPrev null).
+// Falls back to input order if inconsistent.
+export function orderDetectionsByChain(detections: Detection[]): Detection[] {
+  if (detections.length <= 1) return detections.slice();
+  const byPrev = new Map<string | null, Detection[]>();
+  const byCurr = new Map<string, Detection>();
+  for (const d of detections) {
+    const arr = byPrev.get(d.hashChainPrev ?? null) || [];
+    arr.push(d);
+    byPrev.set(d.hashChainPrev ?? null, arr);
+    byCurr.set(d.hashChainCurr, d);
+  }
+  const heads = byPrev.get(null) || [];
+  if (heads.length !== 1) return detections; // ambiguous
+  const ordered: Detection[] = [];
+  let current = heads[0];
+  ordered.push(current);
+  for (;;) {
+    const nextCandidates = byPrev.get(current.hashChainCurr) || [];
+    if (nextCandidates.length === 0) break;
+    if (nextCandidates.length > 1) return detections; // branch -> ambiguous
+    current = nextCandidates[0];
+    ordered.push(current);
+    if (ordered.length > detections.length) return detections; // cycle guard
+  }
+  if (ordered.length !== detections.length) return detections; // disconnected segments
+  return ordered;
+}

@@ -44,7 +44,7 @@ export class DetectionRepository {
     try {
       const rows = await this.prisma.detection.findMany({
         where: { canaryId },
-        orderBy: { detectionTime: 'desc' },
+        orderBy: [{ detectionTime: 'asc' }, { id: 'asc' }],
       });
       return rows.map(map);
     } catch (err) {
