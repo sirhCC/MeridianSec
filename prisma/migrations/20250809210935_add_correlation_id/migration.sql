@@ -1,0 +1,2 @@
+-- (removed obsolete unique index removal; migration consolidated)
+-- No-op
