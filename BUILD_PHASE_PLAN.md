@@ -40,10 +40,6 @@ Tasks
 6. [DONE] CLI `init` + `create` (mock).
 7. [DONE] Hash chain util + unit test.
 8. [DONE] Add lint:fix script & enforce commit hooks (husky + lint-staged) (S).
-9. [DONE] Add coverage threshold gate (initial 60%) (XS).
-10. [DONE] Document local dev workflow in README quick start (XS).
-
-Quality Gates / Exit Criteria
 
 - CI passes: lint, typecheck, unit tests.
 - Coverage >= 60% (core utils + config).
@@ -63,14 +59,10 @@ Risks & Mitigations
 
 **Goal:** Formalize domain boundaries and expose minimal REST endpoints enabling integration tests.
 
-Deliverables
-
 - Repository layer (`/src/persistence/*` or `/src/adapters/db/*`).
 - Domain services: `CanaryService` (create/list/get), `PlacementService` (list by canary).
 - REST Endpoints:
-  - POST `/v1/canaries` (mock create)
   - GET `/v1/canaries/:id`
-  - GET `/v1/canaries`
 - Error handling middleware (uniform JSON: `{error: {code, message, details?}}`).
 - Validation via Zod schemas for request/response.
 - Integration tests with in-memory / temp db (or separate SQLite file).
@@ -78,11 +70,6 @@ Deliverables
 
 Tasks (Ordered)
 
-1. [DONE] Add repository abstraction (M).
-2. [DONE] Implement service layer (S).
-3. [DONE] Add initial request/response schemas (create canary) (XS). (Further schemas for future endpoints deferred.)
-4. [DONE] Implement canary endpoints + Fastify route registration (S).
-5. [DONE] Write integration tests (create + get + list) (M).
 6. [DONE] CLI refactor (toggle USE_API=1) (M, optional implemented).
 7. [DONE] Update README endpoints section (XS).
 
@@ -96,19 +83,11 @@ Progress Snapshot (2025-08-09 – Final Phase 1):
 
 Acceptance Criteria
 
-- All implemented endpoints return 2xx for happy paths, 4xx for validation errors, 404 for unknown id. (Current canary endpoints satisfy.)
-- Integration tests green; coverage >= 70% for domain + API (met; ~83%).
 - No direct Prisma use outside repository layer (except migrations / optional legacy CLI path when USE_API≠1).
 
 Risks
 
-- Over-engineering early; keep services thin and avoid premature abstraction for detection logic.
-
 ---
-
-## Phase 2 – Detection Engine (Mock) & Console Alerts
-
-**Goal:** End-to-end detection pipeline from simulated event to stored detection + console alert.
 
 Deliverables
 
@@ -116,12 +95,7 @@ Deliverables
 - Mock event source provider (random or queue), plus API injection endpoint POST `/v1/simulate/detection`.
 - Detection record persistence (including hash chain link).
 - Console alert dispatcher (structured log line `alert` level or dedicated channel).
-- E2E test: create canary → simulate detection → verify detection row + console output captured (test adapter).
 
-Tasks
-
-1. [DONE] Event bus abstraction (XS) – simple emitter.
-2. [DONE] Detection repository operations (existing `getLatestForCanary`).
 3. [DONE] Hash chain linkage + tamper verification test (integrity check later formalized).
 4. [DONE] Implement poll loop (M) – gated by `ENABLE_POLL_LOOP` for deterministic tests.
 5. [DONE] Simulate endpoint (S).
@@ -135,10 +109,7 @@ Notes: Poll loop disabled by default in test runs (flag only enabled in dedicate
 Acceptance Criteria
 
 - Simulate endpoint triggers detection < 2s median.
-- Detection rows have non-null `hashChainCurr`; first row has null `hashChainPrev`.
-- Console alert contains canary id + confidence score.
-
-Risks
+  Risks
 
 - Race on hash chain when simultaneous detections: mitigate via transaction & SELECT last ordered by time.
 
@@ -151,12 +122,7 @@ Risks
 Deliverables
 
 - Rotation service (generate new mock secret, update hash, insert rotation record).
-- CLI command & API endpoint: POST `/v1/canaries/:id/rotate`.
-- Integrity verifier utility scanning detections to confirm hash chain consistency.
-- Scheduled integrity check (manual script/CLI initially `canary verify-chain`).
-- Tests: rotation updates secret hash, integrity check passes, tampered row fails.
-
-Tasks
+  Tasks
 
 1. [DONE] Rotation service + test (S).
 2. [DONE] API route + CLI wiring (S).
@@ -168,21 +134,13 @@ Progress Snapshot (2025-08-09 – Updated): Rotation and integrity features comp
 
 Adjusted Acceptance Criteria Tracking:
 
-- Integrity verification: MET (hash chain validates + tamper detected).
 - Rotation lifecycle: MET (service/endpoint/CLI implemented; test validates hash change & sequential rotations).
-
-Acceptance Criteria
+  Acceptance Criteria
 
 - Rotation log includes old & new secret hash (different).
 - Verify-chain command returns success exit code; failure if manipulated test scenario.
 
 Risks
-
-- Forget to invalidate caches after rotation (if caching introduced later). Keep none at this phase.
-
----
-
-## Phase 4 – Slack Adapter, HMAC Signing, Retry/Backoff
 
 **Goal:** External alert delivery with authenticity & minimal retry logic.
 
@@ -195,21 +153,14 @@ Deliverables
 - Dead-letter table or log entry for final failures.
 - Tests mocking Slack endpoint (nock or manual minimal server) verifying signature & retry.
 
-Tasks
-
 1. Canonical JSON serializer (stable key order) (XS).
-2. HMAC signer + unit test (XS).
-3. Slack adapter implementation (S).
-4. Dispatcher orchestrator (S).
-5. Retry logic & test (M).
-6. Dead-letter representation (table or JSON file) (S).
-7. Integration test w/ simulated Slack failure (M).
+2. Slack adapter implementation (S).
+3. Dispatcher orchestrator (S).
+4. Retry logic & test (M).
+5. Dead-letter representation (table or JSON file) (S).
+6. Integration test w/ simulated Slack failure (M).
 
 Acceptance Criteria
-
-- Slack message delivered in test mode with expected fields.
-- On forced failure, exactly N retries happen then DLQ recorded.
-- Signature matches test verification util.
 
 Risks
 
@@ -220,7 +171,6 @@ Risks
 ## Phase 5 – Metrics & Observability
 
 **Goal:** Operational transparency to support scaling & future tuning.
-
 Deliverables
 
 - Prometheus metrics endpoint `/metrics`.
@@ -229,13 +179,7 @@ Deliverables
 - Health endpoint enriched: detection loop last heartbeat timestamp, queue depth.
 - Structured log correlation id per detection (uuid v4).
 
-Tasks
-
-1. Metrics module (prom-client) (S).
-2. Instrument detection pipeline (XS).
-3. Augment log context (XS).
-4. Expanded health route (S).
-5. Tests: metrics scrape includes expected counters after simulated detection (S).
+Tasks 5. Tests: metrics scrape includes expected counters after simulated detection (S).
 
 Acceptance Criteria
 
@@ -246,8 +190,6 @@ Acceptance Criteria
 
 ## Phase 6 – Hardening & CI Quality Gates
 
-**Goal:** Raise confidence / reduce regressions before broader adoption.
-
 Deliverables
 
 - Coverage gate >= 85% (lines core modules).
@@ -256,13 +198,7 @@ Deliverables
 - Release artifact zip includes SBOM (cyclonedx-npm) + coverage summary.
 - Changelog generation (conventional commits) & version bump script.
 
-Tasks
-
-1. Enforce coverage threshold in test script (XS).
-2. Add SBOM generation to release workflow (S).
-3. Add changelog (auto-changelog or conventional-changelog) (S).
-4. CI step: run integrity verifier (XS).
-5. Document security posture summary (XS).
+Tasks 5. Document security posture summary (XS).
 
 Acceptance Criteria
 
@@ -273,8 +209,6 @@ Acceptance Criteria
 ---
 
 ## Phase 7 – Extensibility: Additional Token Types
-
-**Goal:** Prove pluggable architecture for honeytoken varieties.
 
 Deliverables
 
@@ -289,8 +223,7 @@ Tasks
 2. New generator + unit tests (S).
 3. Update create flow to use registry (S).
 4. Update docs enumerating token types (XS).
-
-Acceptance Criteria
+   Acceptance Criteria
 
 - Adding a dummy generator in test does not require changing service code (only registry entry) – proven by test.
 
@@ -302,7 +235,6 @@ Acceptance Criteria
 
 Deliverables
 
-- Load script (k6 or custom Node) simulating detection bursts (e.g., 10/sec for 60s).
 - Lock contention mitigation (serialize detection writes or WAL mode set).
 - Graceful shutdown (stop detection loop, flush pending alerts).
 - Comprehensive README + architecture section diagrams (Mermaid).
@@ -315,8 +247,7 @@ Tasks
 3. Load test harness & metrics capture (M).
 4. Document capacity assumptions (XS).
 5. UX polish (consistent CLI output formatting) (XS).
-
-Acceptance Criteria
+   Acceptance Criteria
 
 - Zero failed writes during load test.
 - p95 detection latency < 1s in mock load.
@@ -326,8 +257,6 @@ Acceptance Criteria
 ## Phase 9 – Optional Real AWS Integration (Feature Flagged)
 
 **Goal:** Replace mock AWS token generation with optional real IAM key issuing.
-
-Deliverables
 
 - AWS provider module (STS + IAM wrapper) with least privilege policy template + tagging.
 - Feature flag `AWS_INTEGRATION=1`; fallback to mock when off.
@@ -340,26 +269,15 @@ Tasks
 1. Policy template & doc (S).
 2. AWS client wrapper + interface (M).
 3. Create path integration (M).
-4. Rotation path integration (M).
-5. Tests with AWS SDK v3 mocks (S).
-6. Security review checklist (S).
+4. Tests with AWS SDK v3 mocks (S).
+5. Security review checklist (S).
 
-Acceptance Criteria
-
-- Successful dry run in sandbox account: create, rotate, revoke operations logged.
-- No secret value stored in DB (only hash) – verified.
-
----
-
-## Cross-Cutting Concerns & Continuous Activities
-
-| Concern              | Activity                                     | Frequency         | Owner   |
-| -------------------- | -------------------------------------------- | ----------------- | ------- |
-| Docs Sync            | Update README, INSTRUCTION, BUILD_PHASE_PLAN | End of each phase | DOC     |
-| Dependency Hygiene   | `npm outdated` review                        | Weekly            | BE      |
-| Security Review      | Quick threat model delta                     | Phase gate        | SEC     |
-| Performance Baseline | Capture metrics snapshot                     | Phase 2,5,8       | ARCH    |
-| Backlog Grooming     | Reprioritize items                           | Bi-weekly         | ARCH/BE |
+| Concern              | Activity                                     | Frequency         | Owner |
+| -------------------- | -------------------------------------------- | ----------------- | ----- |
+| Docs Sync            | Update README, INSTRUCTION, BUILD_PHASE_PLAN | End of each phase | DOC   |
+| Dependency Hygiene   | `npm outdated` review                        | Weekly            | BE    |
+| Security Review      | Quick threat model delta                     | Phase gate        | SEC   |
+| Performance Baseline | Capture metrics snapshot                     | Phase 2,5,8       | ARCH  |
 
 ---
 

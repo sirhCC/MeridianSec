@@ -4,6 +4,7 @@ import { CanaryRepository } from '../repositories/canaryRepository.js';
 import { loadConfig } from '../config/index.js';
 import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
+import { loadAlertingFromEnv, AlertingService } from './alerting.js';
 
 export interface DetectionEvents {
   [k: string]: unknown;
@@ -23,6 +24,7 @@ export class DetectionEngine {
   private pollTimer: NodeJS.Timeout | null = null;
   private cfg = loadConfig();
   private canaryRepo = new CanaryRepository();
+  private alerting: AlertingService | null = null;
 
   constructor(opts?: { bus?: EventBus<DetectionEvents>; repo?: DetectionRepository }) {
     this.bus = opts?.bus || new EventBus<DetectionEvents>();
@@ -36,6 +38,8 @@ export class DetectionEngine {
   start() {
     if (this.running) return;
     this.running = true;
+    // initialize alerting (lazy, env-based)
+    this.alerting = loadAlertingFromEnv();
     this.bus.on('detectionProduced', async (evt) => {
       try {
         await this.handle(evt);
@@ -86,6 +90,17 @@ export class DetectionEngine {
       { detectionId: record.id, canaryId: record.canaryId, hash: record.hashChainCurr },
       'canary-detection',
     );
+    // Alerting if threshold met
+    if (this.alerting) {
+      await this.alerting.maybeAlert({
+        canaryId: record.canaryId,
+        detectionId: record.id,
+        confidenceScore: record.confidenceScore,
+        source: record.source,
+        hash: record.hashChainCurr,
+        createdAt: record.detectionTime.toISOString(),
+      });
+    }
   }
 
   private async pollTick() {
