@@ -41,7 +41,7 @@ Tasks
 7. [DONE] Hash chain util + unit test.
 8. [DONE] Add lint:fix script & enforce commit hooks (husky + lint-staged) (S).
 9. [DONE] Add coverage threshold gate (initial 60%) (XS).
-10. [PENDING] Document local dev workflow in README quick start (XS).
+10. [DONE] Document local dev workflow in README quick start (XS).
 
 Quality Gates / Exit Criteria
 
