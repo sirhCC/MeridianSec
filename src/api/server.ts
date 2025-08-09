@@ -56,7 +56,13 @@ export async function buildServer() {
         .status(400)
         .send({ error: { code: 'VALIDATION_ERROR', message: parsed.error.message } });
     }
-    detectionEngine.eventBus.emit('detectionProduced', parsed.data);
+    const p = detectionEngine.eventBus.emit('detectionProduced', parsed.data);
+    if (process.env.SYNC_DETECTIONS_FOR_TEST === '1') {
+      // In test sync mode, wait for detection pipeline to finish before responding
+      await p;
+    } else {
+      void p; // fire-and-forget normal async behavior
+    }
     return reply.status(202).send({ accepted: true });
   });
 

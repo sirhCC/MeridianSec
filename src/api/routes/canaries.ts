@@ -74,6 +74,19 @@ export async function canaryRoutes(app: FastifyInstance) {
     return { detections: ordered };
   });
 
+  // Get a single detection by correlationId (cross-canary)
+  app.get<{ Params: { correlationId: string } }>(
+    '/v1/detections/correlation/:correlationId',
+    async (req, reply) => {
+      const corr = req.params.correlationId;
+      const detRepo = new DetectionRepository();
+      const det = await detRepo.findByCorrelationId(corr);
+      if (!det)
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
+      return { detection: det };
+    },
+  );
+
   // Verify detection hash chain integrity
   app.get<{ Params: IdParams }>('/v1/canaries/:id/detections/verify', async (req, reply) => {
     const id = req.params.id;
