@@ -9,6 +9,7 @@ describe('Canary API', () => {
   beforeAll(async () => {
     // Use a separate sqlite file for integration test to avoid interfering with dev db
     process.env.DATABASE_URL = 'file:./data/test-canary.db';
+    delete process.env.ENABLE_POLL_LOOP; // keep deterministic
     app = await buildServer();
   });
 

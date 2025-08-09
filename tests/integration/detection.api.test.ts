@@ -8,6 +8,7 @@ let app: Awaited<ReturnType<typeof buildServer>>;
 describe('Detection Simulation API', () => {
   beforeAll(async () => {
     process.env.DATABASE_URL = 'file:./data/test-detection.db';
+    delete process.env.ENABLE_POLL_LOOP; // do not run background poller here
     app = await buildServer();
   });
 

@@ -1,5 +1,7 @@
 import { EventBus } from '../events/eventBus.js';
 import { DetectionRepository } from '../repositories/detectionRepository.js';
+import { CanaryRepository } from '../repositories/canaryRepository.js';
+import { loadConfig } from '../config/index.js';
 import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
 
@@ -18,6 +20,9 @@ export class DetectionEngine {
   private bus: EventBus<DetectionEvents>;
   private repo: DetectionRepository;
   private running = false;
+  private pollTimer: NodeJS.Timeout | null = null;
+  private cfg = loadConfig();
+  private canaryRepo = new CanaryRepository();
 
   constructor(opts?: { bus?: EventBus<DetectionEvents>; repo?: DetectionRepository }) {
     this.bus = opts?.bus || new EventBus<DetectionEvents>();
@@ -38,10 +43,19 @@ export class DetectionEngine {
         getLogger().error({ err }, 'Failed to process detectionProduced');
       }
     });
+    // Start poll loop for mock cloudtrail mode
+    if (process.env.ENABLE_POLL_LOOP === '1' && this.cfg.cloudtrail.mode === 'mock') {
+      const interval = this.cfg.cloudtrail.pollIntervalMs;
+      this.pollTimer = setInterval(() => void this.pollTick(), interval);
+    }
   }
 
   stop() {
     this.running = false;
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   private async handle(evt: DetectionEvents['detectionProduced']) {
@@ -70,5 +84,23 @@ export class DetectionEngine {
       { detectionId: record.id, canaryId: record.canaryId, hash: record.hashChainCurr },
       'canary-detection',
     );
+  }
+
+  private async pollTick() {
+    if (!this.running) return;
+    try {
+      const canaries = await this.canaryRepo.list();
+      if (canaries.length === 0) return;
+      // pick a random canary to emit a synthetic detection (low volume)
+      const pick = canaries[Math.floor(Math.random() * canaries.length)];
+      this.bus.emit('detectionProduced', {
+        canaryId: pick.id,
+        source: 'CLOUDTRAIL',
+        rawEventJson: JSON.stringify({ synthetic: true, ts: Date.now() }),
+        confidenceScore: 40,
+      });
+    } catch (err) {
+      getLogger().warn({ err }, 'pollTick failed');
+    }
   }
 }

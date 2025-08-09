@@ -3,7 +3,8 @@
 > Internal build playbook (authoritative). Follow sections in order. Keep this up to date as code lands. Treat as living architecture + task board seed.
 
 ## 1. Vision & Elevator Pitch
-Early detection of credential leakage and illicit secret usage by deploying **canary secrets** (decoy credentials + honeytokens) across source, CI/CD, runtime, and data stores, then monitoring for any *attempted use* or *exfiltration path indicators*. When a canary secret is touched, we raise high‑fidelity alerts (pager / chat) within seconds, with full provenance and automated containment suggestions.
+
+Early detection of credential leakage and illicit secret usage by deploying **canary secrets** (decoy credentials + honeytokens) across source, CI/CD, runtime, and data stores, then monitoring for any _attempted use_ or _exfiltration path indicators_. When a canary secret is touched, we raise high‑fidelity alerts (pager / chat) within seconds, with full provenance and automated containment suggestions.
 
 ## 2. Core Principles
 
@@ -103,7 +104,10 @@ Auth: Initially local dev token via env; future: OIDC / API keys.
 ```json
 {
   "database": { "provider": "sqlite", "url": "file:./data/canary.db" },
-  "alerting": { "slackWebhook": "${SLACK_WEBHOOK_URL}", "webhookSignatureSecret": "${ALERT_SIGNING_KEY}" },
+  "alerting": {
+    "slackWebhook": "${SLACK_WEBHOOK_URL}",
+    "webhookSignatureSecret": "${ALERT_SIGNING_KEY}"
+  },
   "cloudtrail": { "mode": "mock", "pollIntervalMs": 5000 },
   "logging": { "level": "info", "json": true }
 }
@@ -297,4 +301,17 @@ yarn canary simulate <id>
 ```
 
 ---
+
 Maintainer Note: Keep this INSTRUCTION.md synchronized with actual implementation. Update sections (17, 21) as workflows & tasks evolve.
+
+## 26. Environment Variables (Implemented So Far)
+
+Current recognized environment variables impacting runtime behavior:
+
+- `PORT` – HTTP listen port (if server component present).
+- `NODE_ENV` – Standard environment mode.
+- `DATABASE_URL` – Prisma connection string (SQLite by default).
+- `CLOUDTRAIL_POLL_INTERVAL_MS` – Override default mock CloudTrail poll interval (milliseconds).
+- `ENABLE_POLL_LOOP` – When set to `1`, activates the mock CloudTrail background polling loop. Leave unset for most tests to maintain deterministic timing and avoid DB contention.
+
+(Keep this list updated as new env toggles are added.)
