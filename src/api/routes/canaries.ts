@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { createCanaryBodySchema, toPublicCanary } from '../schemas/canarySchemas.js';
 import { CanaryService } from '../../services/canaryService.js';
 import { NotFoundError } from '../../repositories/errors.js';
+import { DetectionRepository } from '../../repositories/detectionRepository.js';
 
 const service = new CanaryService();
 
@@ -36,5 +37,24 @@ export async function canaryRoutes(app: FastifyInstance) {
   app.get('/v1/canaries', async () => {
     const list = await service.list();
     return { canaries: list.map(toPublicCanary) };
+  });
+
+  // List detections for a canary (hash chain order ascending by detectionTime)
+  app.get<{ Params: IdParams }>('/v1/canaries/:id/detections', async (req, reply) => {
+    const id = req.params.id;
+    const detRepo = new DetectionRepository();
+    try {
+      // ensure canary exists (will throw NotFoundError if not)
+      await service.get(id);
+    } catch (err) {
+      if (err instanceof NotFoundError) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: err.message } });
+      }
+      throw err;
+    }
+    const detections = await detRepo.listByCanary(id);
+    // sort ascending for hash chain linkage verification convenience
+    detections.sort((a, b) => a.detectionTime.getTime() - b.detectionTime.getTime());
+    return { detections };
   });
 }

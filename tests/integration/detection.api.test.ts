@@ -28,11 +28,45 @@ describe('Detection Simulation API', () => {
       payload: { canaryId, source: 'SIM', rawEventJson: '{}', confidenceScore: 75 },
     });
     expect(simResp.statusCode).toBe(202);
+    // Retrieve detections
+    const detResp = await app.inject({ method: 'GET', url: `/v1/canaries/${canaryId}/detections` });
+    expect(detResp.statusCode).toBe(200);
+    const detBody = detResp.json();
+    expect(Array.isArray(detBody.detections)).toBe(true);
+    expect(detBody.detections.length).toBe(1);
+    const first = detBody.detections[0];
+    expect(first.hashChainPrev === null || first.hashChainPrev === undefined).toBe(true);
+    expect(first.hashChainCurr).toMatch(/^[a-f0-9]{64}$/);
 
-    // Give event loop a tick (engine processes synchronously, so likely not needed)
-    const listResp = await app.inject({ method: 'GET', url: '/v1/canaries/' + canaryId });
-    expect(listResp.statusCode).toBe(200);
-    // NOTE: detection retrieval endpoint not yet implemented; existence validated indirectly via absence of errors
+    // Add a second detection to verify linkage
+    const simResp2 = await app.inject({
+      method: 'POST',
+      url: '/v1/simulate/detection',
+      payload: { canaryId, source: 'SIM', rawEventJson: '{}', confidenceScore: 80 },
+    });
+    expect(simResp2.statusCode).toBe(202);
+    // Because processing is async (202 Accepted), poll until second detection appears
+    interface DetItem {
+      hashChainPrev?: string | null;
+      hashChainCurr: string;
+    }
+    interface DetList {
+      detections: DetItem[];
+    }
+    let detBody2: DetList | null = null;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const detResp2 = await app.inject({
+        method: 'GET',
+        url: `/v1/canaries/${canaryId}/detections`,
+      });
+      detBody2 = detResp2.json();
+      if (detBody2 && detBody2.detections.length === 2) break;
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    if (!detBody2) throw new Error('detections not populated');
+    expect(detBody2.detections.length).toBe(2);
+    const [d1, d2] = detBody2.detections;
+    expect(d2.hashChainPrev).toBe(d1.hashChainCurr);
   });
 });
 
