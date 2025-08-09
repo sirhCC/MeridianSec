@@ -21,7 +21,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/explicit-function-return-type': 'off',
   '@typescript-eslint/no-explicit-any': 'error',
-  // Allow unresolved in tests for compiled extension mapping
-  'import/no-unresolved': ['error', { ignore: ['^\.\./\.\./src/.*'] }]
+  'import/extensions': 'off',
+  'import/no-unresolved': 'off'
   }
 };

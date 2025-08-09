@@ -8,8 +8,13 @@ export function getLogger() {
     const cfg = loadConfig();
     loggerInstance = pino({
       level: cfg.logging.level,
-      transport: cfg.logging.json ? undefined : { target: 'pino-pretty' }
+      transport: cfg.logging.json ? undefined : { target: 'pino-pretty' },
     });
   }
   return loggerInstance;
+}
+
+// Test-only helper to reset singleton (not exported in production docs)
+export function __resetLoggerForTests() {
+  loggerInstance = null;
 }
