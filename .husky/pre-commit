@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Husky pre-commit hook (fixed)
+command -v node >/dev/null 2>&1 || { echo >&2 "Node.js required but not installed."; exit 1; }
+
+# Source Husky helper
+. "$(dirname -- "$0")/_/husky.sh"
+
+# Run linters/formatters on staged files
+npx lint-staged

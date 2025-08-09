@@ -10,16 +10,17 @@
     "canary": "dist/cli/index.js"
   },
   "scripts": {
-    "prepare": "prisma generate",
+    "prepare": "prisma generate && husky install",
     "dev": "tsx src/index.ts",
     "dev:cli": "tsx src/cli/index.ts --help",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "canary": "tsx src/cli/index.ts",
     "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest --watch",
     "format": "prettier --write ."
   },
   "engines": {
@@ -40,11 +41,23 @@
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-import": "^2.29.1",
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.7",
     "prettier": "^3.3.3",
     "prisma": "^5.18.0",
-  "supertest": "^7.0.0",
+    "supertest": "^7.0.0",
     "tsx": "^4.16.2",
     "typescript": "^5.5.4",
-    "vitest": "^1.6.0"
+    "vitest": "^3.2.4",
+    "@vitest/coverage-v8": "^3.2.4"
+  },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "prettier --write",
+      "eslint --cache --fix --ext .ts"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

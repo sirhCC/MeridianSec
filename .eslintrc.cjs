@@ -11,8 +11,17 @@ module.exports = {
     'plugin:import/typescript',
     'prettier'
   ],
+  settings: {
+    'import/resolver': {
+      node: {
+        extensions: ['.ts', '.js', '.d.ts']
+      }
+    }
+  },
   rules: {
     '@typescript-eslint/explicit-function-return-type': 'off',
-    '@typescript-eslint/no-explicit-any': 'error'
+  '@typescript-eslint/no-explicit-any': 'error',
+  // Allow unresolved in tests for compiled extension mapping
+  'import/no-unresolved': ['error', { ignore: ['^\.\./\.\./src/.*'] }]
   }
 };
