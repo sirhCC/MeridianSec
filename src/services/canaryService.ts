@@ -74,6 +74,13 @@ export class CanaryService {
       newSecretHash: newHash,
       rotatedBy,
     });
+    // metrics
+    try {
+      const { rotationsTotal } = await import('../metrics/index.js');
+      rotationsTotal.inc();
+    } catch {
+      /* ignore dynamic import errors in tests */
+    }
     return {
       rotation: { oldSecretHash: oldHash, newSecretHash: newHash },
       canary: updated,

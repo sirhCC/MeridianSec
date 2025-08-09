@@ -31,6 +31,21 @@ export const detectionPipelineLatencySeconds = new Histogram({
   registers: [registry],
 });
 
+// Total secret rotations performed
+export const rotationsTotal = new Counter({
+  name: 'rotations_total',
+  help: 'Total canary secret rotations performed',
+  registers: [registry],
+});
+
+// Integrity verification results (label result=valid|invalid)
+export const integrityVerificationsTotal = new Counter({
+  name: 'integrity_verifications_total',
+  help: 'Total detection chain integrity verifications',
+  labelNames: ['result'] as const,
+  registers: [registry],
+});
+
 export function metricsSummary() {
   return registry.metrics();
 }

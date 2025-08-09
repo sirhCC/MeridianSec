@@ -88,6 +88,13 @@ export async function canaryRoutes(app: FastifyInstance) {
     }
     const detections = orderDetectionsByChain(await detRepo.listByCanary(id));
     const result = verifyDetectionChain(detections);
+    // Metrics (dynamic import to avoid circular issues in some test contexts)
+    try {
+      const { integrityVerificationsTotal } = await import('../../metrics/index.js');
+      integrityVerificationsTotal.inc({ result: result.valid ? 'valid' : 'invalid' });
+    } catch {
+      /* ignore if metrics module not available */
+    }
     return { canaryId: id, ...result };
   });
 }
