@@ -1,0 +1,50 @@
+{
+  "name": "secrets-canary",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canary secrets & exfiltration early-warning service (MVP skeleton)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "canary": "dist/cli/index.js"
+  },
+  "scripts": {
+    "prepare": "prisma generate",
+    "dev": "tsx src/index.ts",
+    "dev:cli": "tsx src/cli/index.ts --help",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "canary": "tsx src/cli/index.ts",
+    "lint": "eslint . --ext .ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "format": "prettier --write ."
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.18.0",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "pino": "^9.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "@typescript-eslint/eslint-plugin": "^7.8.0",
+    "@typescript-eslint/parser": "^7.8.0",
+    "eslint": "^9.6.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "prettier": "^3.3.3",
+    "prisma": "^5.18.0",
+    "supertest": "^6.4.2",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4",
+    "vitest": "^1.6.0"
+  }
+}

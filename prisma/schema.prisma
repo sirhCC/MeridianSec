@@ -1,0 +1,75 @@
+// Prisma schema (MVP) for Secrets Canary
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL") // e.g. file:./data/canary.db
+}
+
+enum CanaryType {
+  AWS_IAM_KEY
+  FAKE_API_KEY
+}
+
+enum PlacementLocationType {
+  REPO_FILE
+  CI_VAR
+  S3_OBJECT
+  ENV_FILE
+}
+
+enum DetectionSource {
+  CLOUDTRAIL
+  SIM
+  MANUAL
+}
+
+model Canary {
+  id                String      @id @default(cuid())
+  type              CanaryType
+  active            Boolean     @default(true)
+  currentSecretHash String
+  salt              String
+  createdAt         DateTime    @default(now())
+  placements        Placement[]
+  rotations         Rotation[]
+  detections        Detection[]
+}
+
+model Placement {
+  id          String                @id @default(cuid())
+  canary      Canary                @relation(fields: [canaryId], references: [id])
+  canaryId    String
+  locationType PlacementLocationType
+  locationRef String
+  insertedAt   DateTime             @default(now())
+}
+
+model Rotation {
+  id             String   @id @default(cuid())
+  canary         Canary   @relation(fields: [canaryId], references: [id])
+  canaryId       String
+  oldSecretHash  String
+  newSecretHash  String
+  rotatedAt      DateTime @default(now())
+  rotatedBy      String
+}
+
+model Detection {
+  id              String          @id @default(cuid())
+  canary          Canary          @relation(fields: [canaryId], references: [id])
+  canaryId        String
+  detectionTime   DateTime        @default(now())
+  source          DetectionSource
+  rawEventJson    String
+  actorIdentity   String?
+  confidenceScore Int
+  alertSent       Boolean         @default(false)
+  hashChainPrev   String?
+  hashChainCurr   String
+  @@index([canaryId, detectionTime])
+}
