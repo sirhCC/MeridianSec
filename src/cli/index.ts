@@ -108,6 +108,38 @@ program
     console.log(JSON.stringify({ id: canary.id, mockSecret }, null, 2));
   });
 
+program
+  .command('verify-chain')
+  .requiredOption('--canary-id <id>', 'Canary id to verify')
+  .description('Verify detection hash chain integrity for a canary (API mode only)')
+  .action(async (opts: { canaryId: string }) => {
+    if (!USE_API) {
+      console.error('verify-chain requires USE_API=1');
+      process.exit(1);
+    }
+    const url = new URL(`/v1/canaries/${opts.canaryId}/detections/verify`, API_BASE);
+    const body = await httpRequest(
+      {
+        method: 'GET',
+        hostname: url.hostname,
+        port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname,
+        protocol: url.protocol,
+      },
+      '',
+    );
+    const parsed = JSON.parse(body);
+    if (parsed.error) {
+      console.error(parsed.error);
+      process.exit(1);
+    }
+    if (!parsed.valid) {
+      console.error('Chain INVALID:', JSON.stringify(parsed.breaks, null, 2));
+      process.exit(2);
+    }
+    console.log('Chain valid. Last hash:', parsed.lastHash || 'none');
+  });
+
 function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const req = http.request(options, (res) => {

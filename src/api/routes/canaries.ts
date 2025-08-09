@@ -3,7 +3,7 @@ import { createCanaryBodySchema, toPublicCanary } from '../schemas/canarySchemas
 import { CanaryService } from '../../services/canaryService.js';
 import { NotFoundError } from '../../repositories/errors.js';
 import { DetectionRepository } from '../../repositories/detectionRepository.js';
-import { verifyDetectionChain } from '../../utils/chainIntegrity.js';
+import { verifyDetectionChain, orderDetectionsByChain } from '../../utils/chainIntegrity.js';
 
 const service = new CanaryService();
 
@@ -54,9 +54,8 @@ export async function canaryRoutes(app: FastifyInstance) {
       throw err;
     }
     const detections = await detRepo.listByCanary(id);
-    // sort ascending for hash chain linkage verification convenience
-    detections.sort((a, b) => a.detectionTime.getTime() - b.detectionTime.getTime());
-    return { detections };
+    const ordered = orderDetectionsByChain(detections);
+    return { detections: ordered };
   });
 
   // Verify detection hash chain integrity
@@ -71,8 +70,7 @@ export async function canaryRoutes(app: FastifyInstance) {
       }
       throw err;
     }
-    const detections = await detRepo.listByCanary(id);
-    detections.sort((a, b) => a.detectionTime.getTime() - b.detectionTime.getTime());
+    const detections = orderDetectionsByChain(await detRepo.listByCanary(id));
     const result = verifyDetectionChain(detections);
     return { canaryId: id, ...result };
   });
