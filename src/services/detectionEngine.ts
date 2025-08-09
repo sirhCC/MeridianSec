@@ -5,6 +5,7 @@ import { loadConfig } from '../config/index.js';
 import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
 import { loadAlertingFromEnv, AlertingService, getAlertMetrics } from './alerting.js';
+import { detectionsTotal, detectionPipelineLatencySeconds } from '../metrics/index.js';
 
 export interface DetectionEvents {
   [k: string]: unknown;
@@ -66,6 +67,7 @@ export class DetectionEngine {
 
   private async handle(evt: DetectionEvents['detectionProduced']) {
     if (!this.running) return;
+    const start = process.hrtime.bigint();
     const latest = await this.repo.getLatestForCanary(evt.canaryId);
     const prevHash = latest?.hashChainCurr || null;
     const canonical = JSON.stringify({
@@ -90,6 +92,10 @@ export class DetectionEngine {
       { detectionId: record.id, canaryId: record.canaryId, hash: record.hashChainCurr },
       'canary-detection',
     );
+    const end = process.hrtime.bigint();
+    const seconds = Number(end - start) / 1e9;
+    detectionPipelineLatencySeconds.observe(seconds);
+    detectionsTotal.inc({ source: record.source });
     // Alerting if threshold met
     if (this.alerting) {
       await this.alerting.maybeAlert({

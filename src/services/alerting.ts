@@ -1,4 +1,6 @@
 import { getLogger } from '../utils/logging.js';
+import { alertsSentTotal, alertFailuresTotal } from '../metrics/index.js';
+import { buildCanonicalPayload, hmacSign } from '../utils/signing.js';
 
 // Basic in-memory metrics (to be exported later via /metrics when implemented)
 const metrics = {
@@ -38,10 +40,15 @@ export interface WebhookConfig {
 
 export class WebhookAlertChannel implements AlertChannel {
   constructor(private cfg: WebhookConfig) {}
-  async send(payload: AlertPayload): Promise<void> {
+  async send(payload: AlertPayload, extraHeaders?: Record<string, string>): Promise<void> {
+    const headers = {
+      'content-type': 'application/json',
+      ...(this.cfg.headers || {}),
+      ...(extraHeaders || {}),
+    };
     const res = await fetch(this.cfg.url, {
       method: this.cfg.method || 'POST',
-      headers: { 'content-type': 'application/json', ...(this.cfg.headers || {}) },
+      headers,
       body: JSON.stringify(payload),
     });
     if (!res.ok) {
@@ -77,13 +84,22 @@ export class AlertingService {
         let attempt = 0;
         while (attempt < maxAttempts) {
           try {
-            await c.send(full);
+            // If webhook channel and signing secret present, wrap send with signature header injection
+            if (c instanceof WebhookAlertChannel && process.env.ALERT_HMAC_SECRET) {
+              const canonical = buildCanonicalPayload(full);
+              const signature = hmacSign(canonical, process.env.ALERT_HMAC_SECRET);
+              await c.send(full, { 'x-canary-signature': signature });
+            } else {
+              await c.send(full);
+            }
             metrics.alertsSent += 1;
+            alertsSentTotal.inc({ adapter: c.constructor.name });
             return;
           } catch (err) {
             attempt++;
             if (attempt >= maxAttempts) {
               metrics.alertsFailed += 1;
+              alertFailuresTotal.inc({ adapter: c.constructor.name });
               getLogger().error({ err, attempts: attempt }, 'alert send failed');
               return;
             }

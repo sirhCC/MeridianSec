@@ -4,12 +4,19 @@ import { canaryRoutes } from './routes/canaries.js';
 import { RepositoryError, NotFoundError } from '../repositories/errors.js';
 import { DetectionEngine } from '../services/detectionEngine.js';
 import { simulateDetectionBodySchema } from './schemas/canarySchemas.js';
+import { registry } from '../metrics/index.js';
 
 export async function buildServer() {
   const app = Fastify({ logger: getLogger() });
 
   app.get('/healthz', async () => {
     return { status: 'ok', time: new Date().toISOString() };
+  });
+
+  app.get('/metrics', async (_req, reply) => {
+    const body = await registry.metrics();
+    reply.header('Content-Type', registry.contentType);
+    return reply.send(body);
   });
 
   // Canary routes
