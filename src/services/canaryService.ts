@@ -58,6 +58,7 @@ export class CanaryService {
     canary: Canary;
     generatedSecret: string;
   }> {
+    const start = process.hrtime.bigint();
     const canary = await this.canaryRepo.get(id);
     const oldHash = canary.currentSecretHash;
     // Generate new mock secret (consistent pattern) and hash with existing salt
@@ -76,8 +77,10 @@ export class CanaryService {
     });
     // metrics
     try {
-      const { rotationsTotal } = await import('../metrics/index.js');
+      const { rotationsTotal, rotationsLatencySeconds } = await import('../metrics/index.js');
       rotationsTotal.inc({ type: 'default' });
+      const end = process.hrtime.bigint();
+      rotationsLatencySeconds.observe(Number(end - start) / 1e9);
     } catch {
       /* ignore dynamic import errors in tests */
     }

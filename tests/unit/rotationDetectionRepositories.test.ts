@@ -3,15 +3,21 @@ import { CanaryRepository } from '../../src/repositories/canaryRepository.js';
 import { RotationRepository } from '../../src/repositories/rotationRepository.js';
 import { DetectionRepository } from '../../src/repositories/detectionRepository.js';
 import { closePrisma } from '../../src/db/client.js';
+import { ensureTestDb } from '../utils/db.js';
 import crypto from 'crypto';
 
-const canaryRepo = new CanaryRepository();
-const rotationRepo = new RotationRepository();
-const detectionRepo = new DetectionRepository();
+let canaryRepo: CanaryRepository;
+let rotationRepo: RotationRepository;
+let detectionRepo: DetectionRepository;
 
 describe('Rotation & Detection Repositories', () => {
-  beforeAll(() => {
+  beforeAll(async () => {
     process.env.DATABASE_URL = 'file:./data/test-canary-unit2.db';
+    await closePrisma(); // ensure client reinitializes with new DB
+    ensureTestDb();
+    canaryRepo = new CanaryRepository();
+    rotationRepo = new RotationRepository();
+    detectionRepo = new DetectionRepository();
   });
 
   it('records rotation entries', async () => {

@@ -15,6 +15,7 @@ function makeDetection(partial: Partial<Detection>): Detection {
     alertSent: partial.alertSent ?? false,
     hashChainPrev: partial.hashChainPrev ?? null,
     hashChainCurr: partial.hashChainCurr || '',
+    correlationId: partial.correlationId || 'corr-' + Math.random().toString(36).slice(2),
   };
 }
 
@@ -41,6 +42,7 @@ describe('verifyDetectionChain', () => {
       confidenceScore: 60,
       hashChainPrev: null,
       hashChainCurr: h1,
+      correlationId: 'corr-d1',
     });
     // second
     const canonical2 = JSON.stringify({
@@ -57,6 +59,7 @@ describe('verifyDetectionChain', () => {
       confidenceScore: 70,
       hashChainPrev: h1,
       hashChainCurr: h2,
+      correlationId: 'corr-d2',
     });
     const res = verifyDetectionChain([d1, d2]);
     expect(res.valid).toBe(true);
@@ -75,7 +78,12 @@ describe('verifyDetectionChain', () => {
       prev: null,
     });
     const h1 = computeHashChain(null, canonical1);
-    const d1 = makeDetection({ id: 'd1', confidenceScore: 50, hashChainCurr: h1 });
+    const d1 = makeDetection({
+      id: 'd1',
+      confidenceScore: 50,
+      hashChainCurr: h1,
+      correlationId: 'corr-d1',
+    });
     // Second detection but tamper by altering rawEventJson without updating hash
     const canonical2 = JSON.stringify({
       canaryId: 'canary-1',
@@ -92,6 +100,7 @@ describe('verifyDetectionChain', () => {
       rawEventJson: '{"tampered":true}',
       hashChainPrev: h1,
       hashChainCurr: 'badhash'.padEnd(64, '0'), // force mismatch
+      correlationId: 'corr-d2',
     });
     const res = verifyDetectionChain([d1, d2]);
     expect(res.valid).toBe(false);
@@ -112,7 +121,12 @@ describe('verifyDetectionChain', () => {
       prev: null,
     });
     const h1 = computeHashChain(null, canonical1);
-    const d1 = makeDetection({ id: 'd1', confidenceScore: 50, hashChainCurr: h1 });
+    const d1 = makeDetection({
+      id: 'd1',
+      confidenceScore: 50,
+      hashChainCurr: h1,
+      correlationId: 'corr-d1',
+    });
     // second with incorrect prev reference (simulate removal/reorder)
     const canonical2 = JSON.stringify({
       canaryId: 'canary-1',
@@ -128,6 +142,7 @@ describe('verifyDetectionChain', () => {
       confidenceScore: 55,
       hashChainPrev: 'WRONG',
       hashChainCurr: h2,
+      correlationId: 'corr-d2',
     });
     const res = verifyDetectionChain([d1, d2]);
     expect(res.valid).toBe(false);

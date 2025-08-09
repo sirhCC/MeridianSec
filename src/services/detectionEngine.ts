@@ -6,7 +6,11 @@ import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
 import { loadAlertingFromEnv, AlertingService, getAlertMetrics } from './alerting.js';
 import { randomUUID } from 'crypto';
-import { detectionsTotal, detectionPipelineLatencySeconds } from '../metrics/index.js';
+import {
+  detectionsTotal,
+  detectionPipelineLatencySeconds,
+  pollLoopLastTickSeconds,
+} from '../metrics/index.js';
 
 export interface DetectionEvents {
   [k: string]: unknown;
@@ -131,6 +135,11 @@ export class DetectionEngine {
     if (!this.running) return;
     try {
       this.pollingLoopLastTick = new Date();
+      try {
+        pollLoopLastTickSeconds.set(Date.now() / 1000);
+      } catch {
+        /* metric set failed (tests) */
+      }
       const canaries = await this.canaryRepo.list();
       if (canaries.length === 0) return;
       if (process.env.POLL_ALL_CANARIES === '1') {

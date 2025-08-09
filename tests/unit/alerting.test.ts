@@ -11,6 +11,7 @@ describe('AlertingService', () => {
     await svc.maybeAlert({
       canaryId: 'c1',
       detectionId: 'd1',
+      correlationId: 'corr-1',
       confidenceScore: 65,
       source: 'SIM',
       hash: 'h',
@@ -45,6 +46,7 @@ describe('AlertingService', () => {
     await svc.maybeAlert({
       canaryId: 'c1',
       detectionId: 'd1',
+      correlationId: 'corr-1',
       confidenceScore: 50,
       source: 'SIM',
       hash: 'h',

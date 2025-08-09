@@ -1,5 +1,10 @@
 import { getLogger } from '../utils/logging.js';
-import { alertsSentTotal, alertFailuresTotal } from '../metrics/index.js';
+import {
+  alertsSentTotal,
+  alertFailuresTotal,
+  alertRetriesTotal,
+  alertRetryDelayMs,
+} from '../metrics/index.js';
 import { buildCanonicalPayload, hmacSign } from '../utils/signing.js';
 
 // Basic in-memory metrics (to be exported later via /metrics when implemented)
@@ -109,6 +114,12 @@ export class AlertingService {
             }
             // exponential backoff (50ms, 150ms)
             const delay = 50 * Math.pow(3, attempt - 1);
+            try {
+              alertRetriesTotal.inc({ adapter: c.constructor.name });
+              alertRetryDelayMs.observe(delay);
+            } catch {
+              /* metrics optional in some test contexts */
+            }
             await new Promise((r) => setTimeout(r, delay));
           }
         }
