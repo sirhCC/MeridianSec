@@ -107,6 +107,21 @@ export const alertFailuresPurgedTotal = new Counter({
   registers: [registry],
 });
 
+// Age (seconds) from failure creation to replay decision (success or failure)
+export const alertFailureReplayAgeSeconds = new Histogram({
+  name: 'alert_failure_replay_age_seconds',
+  help: 'Age in seconds of an alert failure record at time of replay marking',
+  buckets: [1, 5, 10, 30, 60, 120, 300, 600, 1800, 3600, 7200],
+  registers: [registry],
+});
+
+// Current DLQ pending size (unreplayed failures)
+export const alertFailuresPendingGauge = new Gauge({
+  name: 'alert_failures_pending',
+  help: 'Current number of alert failure records pending replay (replayedAt is null)',
+  registers: [registry],
+});
+
 export function metricsSummary() {
   return registry.metrics();
 }

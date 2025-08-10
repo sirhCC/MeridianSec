@@ -35,6 +35,15 @@ function map(row: RowShape): AlertFailureRecord {
 
 export class AlertFailureRepository {
   private prisma = getPrisma();
+  private async updatePendingGauge() {
+    try {
+      const { alertFailuresPendingGauge } = await import('../metrics/index.js');
+      const pending = await this.prisma.alertFailure.count({ where: { replayedAt: null } });
+      alertFailuresPendingGauge.set(pending);
+    } catch {
+      /* metrics optional */
+    }
+  }
 
   async record(params: {
     detectionId: string;
@@ -46,8 +55,8 @@ export class AlertFailureRepository {
     lastError?: string;
   }): Promise<AlertFailureRecord> {
     try {
-      // @ts-expect-error prisma model added in new migration; type available post generate
       const row: RowShape = await this.prisma.alertFailure.create({ data: { ...params } });
+      void this.updatePendingGauge();
       return map(row);
     } catch (err) {
       throw new RepositoryError('Failed to persist alert failure', err);
@@ -56,7 +65,6 @@ export class AlertFailureRepository {
 
   async list(limit = 50): Promise<AlertFailureRecord[]> {
     try {
-      // @ts-expect-error prisma model added in new migration; type available post generate
       const rows: RowShape[] = await this.prisma.alertFailure.findMany({
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         take: limit,
@@ -69,7 +77,6 @@ export class AlertFailureRepository {
 
   async get(id: string): Promise<AlertFailureRecord | null> {
     try {
-      // @ts-expect-error prisma model added in new migration; type available post generate
       const row: RowShape | null = await this.prisma.alertFailure.findUnique({ where: { id } });
       return row ? map(row) : null;
     } catch (err) {
@@ -79,11 +86,24 @@ export class AlertFailureRepository {
 
   async markReplay(id: string, success: boolean) {
     try {
-      // @ts-expect-error prisma model added in new migration; type available post generate
+      // Fetch existing to compute age
+      const existing: RowShape | null = await this.prisma.alertFailure.findUnique({
+        where: { id },
+      });
       await this.prisma.alertFailure.update({
         where: { id },
         data: { replayedAt: new Date(), replaySuccess: success },
       });
+      if (existing) {
+        try {
+          const { alertFailureReplayAgeSeconds } = await import('../metrics/index.js');
+          const ageSec = (Date.now() - existing.createdAt.getTime()) / 1000;
+          alertFailureReplayAgeSeconds.observe(ageSec);
+        } catch {
+          /* metric optional */
+        }
+      }
+      void this.updatePendingGauge();
     } catch (err) {
       throw new RepositoryError(`Failed to mark replay for ${id}`, err);
     }
@@ -115,9 +135,20 @@ export class AlertFailureRepository {
         return { count };
       }
       const result = await this.prisma.alertFailure.deleteMany({ where });
+      // Recompute pending gauge (deletions might have impacted pending if olderThan used without replay flags)
+      void this.updatePendingGauge();
       return { count: result.count };
     } catch (err) {
       throw new RepositoryError('Failed to purge alert failures', err);
+    }
+  }
+
+  async pendingCount(): Promise<number> {
+    // Count unreplayed failures
+    try {
+      return await this.prisma.alertFailure.count({ where: { replayedAt: null } });
+    } catch (err) {
+      throw new RepositoryError('Failed to count pending alert failures', err);
     }
   }
 }

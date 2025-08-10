@@ -1,6 +1,7 @@
 import Fastify from 'fastify';
 import { getLogger } from '../utils/logging.js';
 import { canaryRoutes } from './routes/canaries.js';
+import { AlertFailureRepository } from '../repositories/alertFailureRepository.js';
 import { RepositoryError, NotFoundError } from '../repositories/errors.js';
 import { DetectionEngine } from '../services/detectionEngine.js';
 import { CanaryRepository } from '../repositories/canaryRepository.js';
@@ -16,6 +17,7 @@ export async function buildServer() {
 
   app.get('/healthz', async () => {
     const canaryRepo = new CanaryRepository();
+    const alertFailureRepo = new AlertFailureRepository();
     const [canaries, detectionInfo] = await Promise.all([
       canaryRepo.list(),
       (async () => detectionEngine.info())(),
@@ -34,6 +36,9 @@ export async function buildServer() {
         lastDetectionProcessedAt: detectionInfo.lastDetectionProcessedAt,
         pollingLoopLastTick: detectionInfo.pollingLoopLastTick,
         running: detectionInfo.running,
+      },
+      dlq: {
+        pending: await alertFailureRepo.pendingCount().catch(() => undefined),
       },
     };
   });

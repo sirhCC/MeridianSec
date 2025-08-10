@@ -277,50 +277,95 @@ program
     false,
   )
   .option('--dry-run', 'Do not delete, only report count', false)
+  .option('--json', 'Always emit JSON (default).', false)
+  .option('--quiet', 'Suppress non-error output (overrides --json human messages)', false)
+  .option('--force', 'Skip confirmation prompt', false)
   .action(
     async (opts: {
       olderThan?: string;
       replayedOnly?: boolean;
       successfulOnly?: boolean;
       dryRun?: boolean;
+      json?: boolean;
+      quiet?: boolean;
+      force?: boolean;
     }) => {
       const repo = new AlertFailureRepository();
       const days = parseInt(opts.olderThan || '30', 10);
       if (Number.isNaN(days) || days <= 0) {
         console.error('--older-than must be a positive integer');
-        process.exit(1);
+        process.exit(2); // validation error
       }
       const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
       const successfulOnly = !!opts.successfulOnly;
       const replayedOnly = successfulOnly ? true : !!opts.replayedOnly;
       const dryRun = !!opts.dryRun;
+      const wantJson = !!opts.json || true; // current default JSON output
+      const quiet = !!opts.quiet;
+      const force = !!opts.force;
+
+      // Pre-count (dry-run style) to show confirmation prompt scale if not a dryRun
+      let prospectiveCount = 0;
+      try {
+        const { count } = await repo.purge({
+          olderThan: cutoff,
+          successfulOnly,
+          replayedOnly,
+          dryRun: true,
+        });
+        prospectiveCount = count;
+      } catch {
+        /* ignore pre-count failure */
+      }
+
+      const confirmThreshold = parseInt(process.env.PURGE_CONFIRM_THRESHOLD || '50', 10);
+      if (!dryRun && !force && prospectiveCount >= confirmThreshold) {
+        if (!quiet) {
+          process.stdout.write(
+            `About to delete ${prospectiveCount} alert failure records. Type YES to confirm: `,
+          );
+        }
+        const answer = await new Promise<string>((resolve) => {
+          process.stdin.resume();
+          process.stdin.once('data', (d) => resolve(d.toString().trim()));
+        });
+        if (answer !== 'YES') {
+          if (!quiet) console.error('Aborted (confirmation mismatch).');
+          process.exit(3); // aborted
+        }
+      }
+
+      // metrics delta (best effort) – rely on known deletion count rather than internal prom-client state
+      let delta = 0;
       const { count } = await repo.purge({
         olderThan: cutoff,
         successfulOnly,
         replayedOnly,
         dryRun,
       });
-      console.log(
-        JSON.stringify(
-          {
-            deleted: dryRun ? 0 : count,
-            wouldDelete: dryRun ? count : undefined,
-            criteria: {
-              olderThanDays: days,
-              replayedOnly,
-              successfulOnly,
-              dryRun,
-            },
-          },
-          null,
-          2,
-        ),
-      );
       try {
         alertFailuresPurgedTotal.inc({ mode: dryRun ? 'dry_run' : 'deleted' }, dryRun ? 0 : count);
+        delta = dryRun ? 0 : count; // since we just incremented by count
       } catch {
-        /* metrics optional */
+        delta = dryRun ? 0 : count; // fallback assume success
       }
+      const payload = {
+        deleted: dryRun ? 0 : count,
+        wouldDelete: dryRun ? count : undefined,
+        criteria: {
+          olderThanDays: days,
+          replayedOnly,
+          successfulOnly,
+          dryRun,
+        },
+        metricsDelta: {
+          alertFailuresPurgedTotal: { delta },
+        },
+      };
+      if (!quiet && wantJson) {
+        console.log(JSON.stringify(payload, null, 2));
+      }
+      // quiet mode: no output
     },
   );
 
