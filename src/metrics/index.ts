@@ -85,6 +85,14 @@ export const alertRetryDelayMs = new Histogram({
   registers: [registry],
 });
 
+// Replay outcomes (via CLI replay-failures)
+export const alertReplaysTotal = new Counter({
+  name: 'alert_replays_total',
+  help: 'Number of alert failure records replayed (attempted)',
+  labelNames: ['result'] as const, // result=success|failure
+  registers: [registry],
+});
+
 export function metricsSummary() {
   return registry.metrics();
 }

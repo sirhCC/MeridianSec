@@ -6,6 +6,7 @@ import { randomSalt, hashSecret } from '../utils/hashChain.js';
 import { PrismaClient } from '@prisma/client';
 import { AlertFailureRepository } from '../repositories/alertFailureRepository.js';
 import { loadAlertingFromEnv } from '../services/alerting.js';
+import { alertReplaysTotal } from '../metrics/index.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -214,10 +215,12 @@ program
       console.error('Alerting disabled (ALERT_THRESHOLD not set) – cannot replay');
       process.exit(1);
     }
-    for (const f of failures) {
+  let anyFailure = false;
+  for (const f of failures) {
       try {
         const payload = JSON.parse(f.payloadJson);
-        await (alerting as any).maybeAlert({
+    // AlertingService has maybeAlert method; casting narrow to expected shape
+    await (alerting as ReturnType<typeof loadAlertingFromEnv>)!.maybeAlert({
           canaryId: payload.canaryId,
           detectionId: payload.detectionId,
           correlationId: payload.correlationId,
@@ -228,11 +231,15 @@ program
         });
         await repo.markReplay(f.id, true);
         console.log(`Replayed ${f.id} OK`);
+    try { alertReplaysTotal.inc({ result: 'success' }); } catch { /* metrics optional */ }
       } catch (err) {
         await repo.markReplay(f.id, false);
         console.error('Replay failed', f.id, err);
+    anyFailure = true;
+    try { alertReplaysTotal.inc({ result: 'failure' }); } catch { /* metrics optional */ }
       }
     }
+  if (anyFailure) process.exitCode = 2; // signal partial failure without aborting listing output
   });
 
 function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
