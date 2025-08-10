@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
 import { closePrisma } from '../../src/db/client.js';
 import crypto from 'crypto';
+import { ensureTestDb } from '../utils/db.js';
 
 let app: Awaited<ReturnType<typeof buildServer>>;
 
@@ -10,6 +11,7 @@ describe('Canary API', () => {
     // Use a separate sqlite file for integration test to avoid interfering with dev db
     process.env.DATABASE_URL = 'file:./data/test-canary.db';
     delete process.env.ENABLE_POLL_LOOP; // keep deterministic
+  ensureTestDb();
     app = await buildServer();
   });
 
