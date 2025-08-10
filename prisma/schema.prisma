@@ -59,3 +59,20 @@ model Detection {
   correlationId   String   @default(cuid())
   @@index([canaryId, detectionTime])
 }
+
+// Persistent alert dead-letter records (final failures after retries)
+model AlertFailure {
+  id            String   @id @default(cuid())
+  detectionId   String   // reference to Detection.id (not FK to allow retention if detection pruned later)
+  canaryId      String
+  adapter       String
+  reason        String
+  payloadJson   String   // original alert payload JSON
+  attempts      Int
+  lastError     String?
+  createdAt     DateTime @default(now())
+  replayedAt    DateTime?
+  replaySuccess Boolean? // null if never replayed, true/false after attempt
+  @@index([canaryId, createdAt])
+  @@index([adapter, createdAt])
+}
