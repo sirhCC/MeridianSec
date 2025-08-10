@@ -4,6 +4,8 @@ import { loadConfig } from '../config/index.js';
 import { getLogger } from '../utils/logging.js';
 import { randomSalt, hashSecret } from '../utils/hashChain.js';
 import { PrismaClient } from '@prisma/client';
+import { AlertFailureRepository } from '../repositories/alertFailureRepository.js';
+import { loadAlertingFromEnv } from '../services/alerting.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -172,6 +174,65 @@ program
         2,
       ),
     );
+  });
+
+program
+  .command('replay-failures')
+  .option('-l, --limit <n>', 'Number of recent failures to list', '50')
+  .option('-r, --replay', 'Attempt replay after listing', false)
+  .description('List dead-lettered alert failures and optionally replay them (env alerting must be enabled)')
+  .action(async (opts: { limit?: string; replay?: boolean }) => {
+    const repo = new AlertFailureRepository();
+    const limit = parseInt(opts.limit || '50', 10) || 50;
+    const failures = await repo.list(limit);
+    if (!failures.length) {
+      console.log('No alert failures found');
+      return;
+    }
+    for (const f of failures) {
+      console.log(
+        JSON.stringify(
+          {
+            id: f.id,
+            detectionId: f.detectionId,
+            canaryId: f.canaryId,
+            adapter: f.adapter,
+            reason: f.reason,
+            attempts: f.attempts,
+            createdAt: f.createdAt,
+            replayedAt: f.replayedAt,
+            replaySuccess: f.replaySuccess,
+          },
+          null,
+          2,
+        ),
+      );
+    }
+    if (!opts.replay) return;
+    const alerting = loadAlertingFromEnv();
+    if (!alerting) {
+      console.error('Alerting disabled (ALERT_THRESHOLD not set) – cannot replay');
+      process.exit(1);
+    }
+    for (const f of failures) {
+      try {
+        const payload = JSON.parse(f.payloadJson);
+        await (alerting as any).maybeAlert({
+          canaryId: payload.canaryId,
+          detectionId: payload.detectionId,
+          correlationId: payload.correlationId,
+          confidenceScore: payload.confidenceScore,
+          source: payload.source,
+          hash: payload.hash,
+          createdAt: payload.createdAt,
+        });
+        await repo.markReplay(f.id, true);
+        console.log(`Replayed ${f.id} OK`);
+      } catch (err) {
+        await repo.markReplay(f.id, false);
+        console.error('Replay failed', f.id, err);
+      }
+    }
   });
 
 function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
