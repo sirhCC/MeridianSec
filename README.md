@@ -4,7 +4,7 @@ Early warning & high-signal detection for secret exfiltration using planted (dec
 
 ## Current Status
 
-Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling, per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
+Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI & replay metrics: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling (success/failure counters + latency histogram), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
 
 ### REST API (Experimental)
 
@@ -121,16 +121,16 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 
 ### 7. Common Tasks
 
-| Task              | Command                                  |
-Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI & replay metrics: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling (success/failure counters + latency histogram), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
-| Lint              | `npm run lint`                           |
-| Auto-fix lint     | `npm run lint:fix`                       |
-| Typecheck         | `npm run typecheck`                      |
-| Build             | `npm run build`                          |
-| Format (Prettier) | `npm run format`                         |
-| Regenerate Prisma     | `npx prisma generate`                    |
-Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same threshold + signing secret logic as live alerts. Replay attempts are instrumented via `alert_replays_total{result="success|failure"}` and latency histogram `alert_replay_latency_ms` (milliseconds from attempt start to completion).
-| List alert failures   | `npm run canary -- replay-failures`      |
+| Task                  | Command                                      |
+| --------------------- | -------------------------------------------- |
+| Lint                  | `npm run lint`                               |
+| Auto-fix lint         | `npm run lint:fix`                           |
+| Typecheck             | `npm run typecheck`                          |
+| Build                 | `npm run build`                              |
+| Format (Prettier)     | `npm run format`                             |
+| Regenerate Prisma     | `npx prisma generate`                        |
+| New migration         | `npx prisma migrate dev --name <change>`     |
+| List alert failures   | `npm run canary -- replay-failures`          |
 | Replay alert failures | `npm run canary -- replay-failures --replay` |
 
 ### Build/Test Metrics (Phase 0 Baseline + Phase 1)
@@ -150,19 +150,17 @@ The service exposes a Prometheus text endpoint at `GET /metrics` (default Fastif
 
 Custom metric inventory (current):
 
-| Name                                 | Type      | Labels                   | Description                                                                                    |
-| ------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
-| `detections_total`                   | Counter   | `source`                 | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL).                              |
-| `detection_pipeline_latency_seconds` | Histogram | (none)                   | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
-### Future Ideas (Backlog Excerpts)
-
-- Rotation latency histogram.
-- Poll loop last tick exported as metric (gauge). (Health includes timestamp; metric pending.)
-- Alert retry counter + backoff histogram.
-- Structured audit log export sink.
-- DLQ maintenance commands (purge/export & archival policies).
-| `integrity_verifications_total`      | Counter   | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome.                                   |
-| `integrity_failures_total`           | Counter   | `reason`                 | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH).                              |
+| Name | Type | Labels | Description |
+| ---- | ---- | ------ | ----------- |
+| `detections_total` | Counter | `source` | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL). |
+| `detection_pipeline_latency_seconds` | Histogram | (none) | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
+| `alerts_sent_total` | Counter | `adapter`,`status` | Successful alerts sent (status currently always 'sent'). |
+| `alert_failures_total` | Counter | `adapter`,`reason` | Alerts that exhausted retries and failed (reason = error name). |
+| `alert_replays_total` | Counter | `result` | Replay attempts of DLQ alert failures (result=success or failure). |
+| `alert_replay_latency_ms` | Histogram | (none) | Latency of replayed alert attempt in milliseconds. |
+| `rotations_total` | Counter | (none) | Secret rotations performed. |
+| `integrity_verifications_total` | Counter | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome. |
+| `integrity_failures_total` | Counter | `reason` | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH). |
 
 Replay attempts are tracked via `alert_replays_total` and `alert_replay_latency_ms` (success/failure + latency).
 
@@ -307,7 +305,15 @@ $env:ALERT_WEBHOOK_URL = "https://example.com/fixed-endpoint"
 npm run canary -- replay-failures --replay
 ```
 
-Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same threshold + signing secret logic as live alerts. Metrics currently exclude replay attempts (future enhancement may add dedicated counters).
+Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same threshold + signing secret logic as live alerts. Replay attempts are instrumented via `alert_replays_total{result="success|failure"}` and latency histogram `alert_replay_latency_ms` (milliseconds from attempt start to completion).
+
+Replay command exit codes:
+
+| Exit Code | Meaning |
+| --------- | ------- |
+| 0 | Listed failures (no replay) OR replay completed and all succeeded OR no failures found |
+| 1 | Configuration / runtime error (e.g. alerting disabled while --replay specified, API/validation errors) |
+| 2 | Replay executed and at least one failure replay attempt failed (partial success) |
 
 Operational tips:
 
@@ -337,10 +343,10 @@ Operational tips:
 ### Future Ideas (Backlog Excerpts)
 
 - Rotation latency histogram.
-- Poll loop last tick exported as metric (gauge).
-- Alert retry counter + backoff histogram.
+- Poll loop last tick exported as metric (gauge). (Health includes timestamp; metric pending.)
+- Alert retry counter + backoff histogram (end-to-end alert latency metric pending).
 - Structured audit log export sink.
-- Replay metrics & DLQ maintenance (purge/export) commands.
+- DLQ maintenance commands (purge/export & archival policies).
 
 ### Troubleshooting
 
