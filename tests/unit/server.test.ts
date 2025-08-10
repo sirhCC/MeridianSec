@@ -1,5 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
+import { ensureTestDb } from '../utils/db.js';
+import { closePrisma } from '../../src/db/client.js';
+
+beforeAll(() => {
+  process.env.DATABASE_URL = 'file:./data/test-health.db';
+  ensureTestDb();
+});
 
 describe('health endpoint', () => {
   it('returns ok with enriched fields', async () => {
@@ -13,4 +20,8 @@ describe('health endpoint', () => {
     expect(body).toHaveProperty('canaries.count');
     expect(body).toHaveProperty('detections.processed');
   });
+});
+
+afterAll(async () => {
+  await closePrisma();
 });
