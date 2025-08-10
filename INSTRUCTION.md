@@ -244,23 +244,60 @@ Milestone 3: Real AWS integration toggle (optional), Slack adapter, rotation log
 Milestone 4: Harden (signature, retries, metrics), CI polishing, release workflow.
 Milestone 5: Additional token types & docs site generation (typedoc).
 
-## 21. Initial Task Backlog (Actionable)
+## 21. Backlog (Updated Post Phase 5)
 
-- [ ] Scaffold package.json, tsconfig, eslint.
-- [ ] Add prisma schema & first migration.
-- [ ] Implement config module (env + file merge) with schema validation (zod).
-- [ ] Implement logging utility wrapper.
-- [ ] Implement domain models (TypeScript types/interfaces).
-- [ ] HTTP server bootstrap with Fastify + /healthz.
-- [ ] CLI `init` (creates db, config skeleton).
-- [ ] CLI `create` (mock canary + placement record).
-- [ ] Detection engine (mock poller) + simulate endpoint.
-- [ ] Alert dispatcher (console).
-- [ ] Hash chain util + tests.
-- [ ] Slack adapter + tests (env-driven enable).
-- [ ] Rotation logic + CLI command.
-- [ ] Integration tests for life-cycle.
-- [ ] GitHub workflows (ci.yml, codeql.yml, release.yml stub).
+Completed Seed Tasks (Phases 0–5):
+
+- [x] Scaffold toolchain (package.json, tsconfig, eslint, prettier, husky, lint-staged).
+- [x] Prisma schema & initial migrations.
+- [x] Config module & logging utility.
+- [x] Domain types & repository layer.
+- [x] Fastify server + `/healthz`.
+- [x] CLI (`init`, `create`, `rotate`, `verify-chain`, simulate).
+- [x] Detection engine + simulate endpoint + poll loop gating.
+- [x] Alert dispatcher (stdout + webhook) with HMAC signing & retries.
+- [x] Hash chain util & integrity verification endpoint/CLI.
+- [x] Rotation logic & tests.
+- [x] Metrics endpoint & extended metric set.
+- [x] Integration & unit test suites (coverage >85%).
+
+Upcoming (Phase 6 – Hardening & Quality Gates):
+
+- [ ] Enforce coverage threshold (>=85%) via Vitest config / CI gate.
+- [ ] CodeQL workflow add/verify.
+- [ ] Persistent dead-letter queue (SQLite `alert_failures` table) + replay CLI.
+- [ ] SBOM generation in release pipeline.
+- [ ] CHANGELOG.md & conventional commit validation (commitlint).
+- [ ] Integrity verifier CI step.
+- [ ] Environment variable reference doc extraction script (optional).
+
+Phase 7 – Extensibility:
+
+- [ ] Token generator interface & registry pattern.
+- [ ] Additional fake API key generator + tests proving OCP.
+- [ ] Update docs (README & architecture) enumerating token types.
+
+Phase 8 – Pre-Prod Stabilization:
+
+- [ ] SQLite WAL mode & lock contention mitigation.
+- [ ] Graceful shutdown hooks (SIGINT/SIGTERM) to stop poll loop & flush alerts.
+- [ ] Load test harness + capture latency distributions.
+- [ ] Architecture diagram (Mermaid) embedded in README.
+- [ ] CLI output consistency pass.
+
+Phase 9 (Optional) – Real AWS Integration:
+
+- [ ] AWS provider wrapper (STS/IAM) behind feature flag.
+- [ ] Secure storage (hash+salt only, show secret once) adjustments.
+- [ ] AWS rotate/revoke flows + tests (mocked SDK).
+- [ ] Security review checklist update.
+
+Deferred / Nice-to-Have:
+
+- [ ] Alert end-to-end latency histogram.
+- [ ] Grafana dashboard JSON export.
+- [ ] Rotations latency already instrumented – add README example queries.
+- [ ] Add canonical JSON signing utility docs snippet (inline JSDoc).
 
 ## 22. Threat Modeling (High-Level)
 
@@ -306,12 +343,41 @@ Maintainer Note: Keep this INSTRUCTION.md synchronized with actual implementatio
 
 ## 26. Environment Variables (Implemented So Far)
 
-Current recognized environment variables impacting runtime behavior:
+Current recognized environment variables impacting runtime behavior (grouped):
 
-- `PORT` – HTTP listen port (if server component present).
+### Core / Server
+
+- `PORT` – HTTP listen port.
 - `NODE_ENV` – Standard environment mode.
-- `DATABASE_URL` – Prisma connection string (SQLite by default).
-- `CLOUDTRAIL_POLL_INTERVAL_MS` – Override default mock CloudTrail poll interval (milliseconds).
-- `ENABLE_POLL_LOOP` – When set to `1`, activates the mock CloudTrail background polling loop. Leave unset for most tests to maintain deterministic timing and avoid DB contention.
+- `DATABASE_URL` – Prisma connection string (SQLite default: `file:./data/canary.db`).
+
+### Detection / Engine
+
+- `CLOUDTRAIL_POLL_INTERVAL_MS` – Override default mock poll interval (ms).
+- `ENABLE_POLL_LOOP` – When `1`, activates background polling loop (disabled in most tests).
+
+### Alerting
+
+- `ALERT_THRESHOLD` – Minimum confidence score to trigger alerting pipeline. (If unset, alerting disabled.)
+- `ALERT_WEBHOOK_URL` – Enables webhook alert channel (generic; was planned as Slack adapter).
+- `ALERT_HMAC_SECRET` – Enables HMAC SHA-256 signing header `x-canary-signature` over canonical JSON payload.
+- `ALERT_STDOUT` – When set to `0`, disables stdout alert channel (enabled by default).
+
+### Metrics / Observability
+
+- (No specific toggles yet; metrics always on.) Future: `METRICS_DISABLE_DEFAULT` (planned) if process metrics suppression needed.
+
+### Integrity / Security
+
+- (None beyond above; future flags may include `BLOCK_UNVERIFIED_ALERTS`).
+
+### Misc / Planned
+
+- `AWS_INTEGRATION` – (Planned Phase 9) toggle for real AWS key provisioning.
+
+### Notes
+
+- Missing persistent dead-letter queue: will introduce additional env (e.g., `ALERT_DLQ_ENABLED`) when implemented (Phase 6 target).
+- Keep this section synchronized with code; add removal notes if deprecating a variable.
 
 (Keep this list updated as new env toggles are added.)

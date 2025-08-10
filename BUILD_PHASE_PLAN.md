@@ -147,31 +147,78 @@ Acceptance Criteria
 
 Risks
 
+## Phase 4 – Alerting, Signing & Retry
+
 **Goal:** External alert delivery with authenticity & minimal retry logic.
 
-Deliverables
+Deliverables (Original Plan vs Implemented)
 
-- Slack adapter (webhook) guarded by config.
-- HMAC signing module (canonical JSON builder + signature header `X-Canary-Signature`).
-- Unified dispatcher that fans out to enabled adapters (Slack + console).
-- Retry with exponential backoff (e.g., 2 attempts, delays 1s/3s) before marking failure.
-- Dead-letter table or log entry for final failures.
-- Tests mocking Slack endpoint (nock or manual minimal server) verifying signature & retry.
+| Item | Planned | Implemented Status |
+| ---- | ------- | ------------------ |
+| Webhook / Slack adapter | Slack specific | Generic webhook channel (env `ALERT_WEBHOOK_URL`) |
+| HMAC signing | Header `X-Canary-Signature` | Implemented as `x-canary-signature` (case-insensitive in HTTP) when `ALERT_HMAC_SECRET` set |
+| Dispatcher fan-out | Slack + console | Console (stdout) + optional webhook, pluggable channels |
+| Retry & backoff | 2 attempts 1s/3s | 3 attempts with exponential backoff (50ms, 150ms) + metrics (`alert_retries_total`, `alert_retry_delay_ms`) |
+| Dead-letter | Table or file | NOT YET (currently only logs failures with metrics increment) |
+| Tests | Signature & retry | Implemented integration tests for webhook signature + metrics (see tests/integration) |
 
-Tasks
+Progress Snapshot (2025-08-10): Phase 4 core alerting pipeline operational. Missing piece: persistent dead-letter store; currently logging final failure and incrementing `alert_failures_total`. Decision: Defer durable DLQ to Phase 6 Hardening to avoid premature persistence schema churn.
 
-1. Canonical JSON serializer (stable key order) (XS).
-2. Slack adapter implementation (S).
-3. Dispatcher orchestrator (S).
-4. Retry logic & test (M).
-5. Dead-letter representation (table or JSON file) (S).
-6. Integration test w/ simulated Slack failure (M).
+Acceptance Criteria Mapping
+
+- Signing of payloads: MET.
+- Retry with metrics: MET (3 attempts). *Slight deviation from plan (attempt count & shorter delays for fast test cycles).*
+- Dead-letter store: DEFERRED → Move to Phase 6 (Hardening) backlog.
+
+Risks & Mitigations
+
+- Potential secret leakage → Verified alert payload omits raw secrets; only IDs, scores, hashes.
+- Retry storm → Minimal due to low concurrency; histogram of backoff added for observability.
+
+Open Follow-Up
+
+- Implement persistent DLQ (SQLite `alert_failures` table) with replay CLI command in Phase 6.
+
+## Phase 5 – Metrics & Observability (Updated)
+
+**Goal:** Operational transparency to support scaling & future tuning.
+
+Deliverables (Planned vs Implemented)
+
+| Metric / Feature | Status |
+| ---------------- | ------ |
+| Prometheus `/metrics` endpoint | Implemented |
+| Counters: detections_total | Implemented |
+| Counter: alerts_sent_total | Implemented |
+| Counter: alert_failures_total | Implemented |
+| Counter: alert_retries_total | Implemented (additional vs plan) |
+| Histogram: alert_retry_delay_ms | Implemented (additional) |
+| Counter: rotations_total | Implemented (label type) |
+| Histogram: detection_pipeline_latency_seconds | Implemented |
+| Histogram: rotations_latency_seconds | Implemented (additional) |
+| Gauge: poll_loop_last_tick_seconds | Implemented (additional) |
+| integrity_verifications_total | Implemented (additional) |
+| integrity_failures_total | Implemented |
+| Structured log correlation id per detection | Implemented |
+| Enhanced /healthz with engine snapshot | Implemented |
+
+Progress Snapshot (2025-08-10): Metrics endpoint exports extended set beyond original scope providing retry/backoff and integrity verification visibility. Correlation IDs logged across detection pipeline. Health endpoint enriched with engine state & counts.
 
 Acceptance Criteria
 
-Risks
+- Metrics endpoint returns non-zero `detections_total` after simulated detection: MET (integration tests cover).
+- Latency histogram buckets present: MET.
 
-- Potential secret leakage in logs. Ensure secret values never in alert payload (only IDs/fingerprints).
+Additions Justification
+
+- Retry & backoff metrics introduced early (originally slated for later) to aid tuning.
+- Integrity verification metrics provide security posture tracking.
+
+Remaining Observability TODO (Moved to Phase 6/8 Backlog)
+
+- Add alert duration (end-to-end) histogram.
+- Export process uptime gauge alias in custom namespace (optional).
+- Provide Grafana dashboard JSON example.
 
 ---
 
@@ -258,7 +305,7 @@ Deliverables
 - Graceful shutdown (stop detection loop, flush pending alerts).
 - Comprehensive README + architecture section diagrams (Mermaid).
 
-* Onboarding checklist doc.
+- Onboarding checklist doc.
 
 Tasks
 
