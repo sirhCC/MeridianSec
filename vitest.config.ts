@@ -14,10 +14,10 @@ export default defineConfig({
         'src/core/types.ts', // type-only
       ],
       thresholds: {
-        lines: 65,
-        functions: 55,
-        branches: 45,
-        statements: 65,
+        lines: 80,
+        statements: 80,
+        functions: 60,
+        branches: 50,
       },
     },
   },

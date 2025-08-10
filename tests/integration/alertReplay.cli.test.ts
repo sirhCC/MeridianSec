@@ -76,5 +76,5 @@ describe('Alert replay CLI', () => {
     const after = await prisma.alertFailure.findMany({ where: { detectionId } });
     expect(after[0].replaySuccess).toBe(true);
     expect(after[0].replayedAt).not.toBeNull();
-  }, 15000);
+  }, 30000); // increased from 15000 to 30000 to accommodate tsx startup + prisma engine on Windows CI
 });
