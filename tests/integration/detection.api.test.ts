@@ -15,6 +15,7 @@ describe('Detection Simulation API', () => {
     if (fs.existsSync(abs)) fs.unlinkSync(abs);
     process.env.DATABASE_URL = 'file:' + dbRel;
     delete process.env.ENABLE_POLL_LOOP; // do not run background poller here
+  process.env.SYNC_DETECTIONS_FOR_TEST = '1'; // ensure simulate endpoint awaits processing
     await closePrisma(); // reset singleton so new DB URL is honored
     ensureTestDb();
     const { buildServer } = await import('../../src/api/server.js');
