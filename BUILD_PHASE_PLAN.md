@@ -17,7 +17,7 @@
 | 1     | Core Domain & API Skeleton   | CRUD for canaries, placements               | Data model churn           | 70% unit coverage core utils             |
 | 2     | Detection & Alerts (Mock)    | Detection loop + console alerts             | Race conditions hash chain | E2E simulate path <2s                    |
 | 3     | Rotation & Integrity         | Rotation CLI + hash chain verification      | Tamper/ordering issues     | Hash chain verifies 100%                 |
-| 4     | Slack + Signing + Retry      | Slack adapter, HMAC signing, retry DLQ      | Alert noise / secrets      | <1% alert failure (test env)             |
+| 4     | Slack + Signing + Retry      | Slack adapter, HMAC signing, retry (DLQ deferred) | Alert noise / secrets      | <1% alert failure (test env)             |
 | 5     | Metrics & Observability      | Prometheus metrics, structured context logs | Overhead                   | p95 detection latency tracked            |
 | 6     | Hardening & CI Quality Gates | Coverage gate, CodeQL, release artifacts    | False positives block CI   | Coverage >=85%                           |
 | 7     | Extensibility Tokens v2      | Additional token type + strategy pattern    | Abstraction leak           | New token no code churn outside strategy |
@@ -159,10 +159,10 @@ Deliverables (Original Plan vs Implemented)
 | HMAC signing | Header `X-Canary-Signature` | Implemented as `x-canary-signature` (case-insensitive in HTTP) when `ALERT_HMAC_SECRET` set |
 | Dispatcher fan-out | Slack + console | Console (stdout) + optional webhook, pluggable channels |
 | Retry & backoff | 2 attempts 1s/3s | 3 attempts with exponential backoff (50ms, 150ms) + metrics (`alert_retries_total`, `alert_retry_delay_ms`) |
-| Dead-letter | Table or file | NOT YET (currently only logs failures with metrics increment) |
+| Dead-letter | Table or file | Implemented later under Phase 6 (AlertFailure + replay CLI) |
 | Tests | Signature & retry | Implemented integration tests for webhook signature + metrics (see tests/integration) |
 
-Progress Snapshot (2025-08-10): Phase 4 core alerting pipeline operational. Missing piece: persistent dead-letter store; currently logging final failure and incrementing `alert_failures_total`. Decision: Defer durable DLQ to Phase 6 Hardening to avoid premature persistence schema churn.
+Progress Snapshot (2025-08-10): Phase 4 core alerting pipeline operational. Persistent DLQ implemented subsequently in Phase 6 (AlertFailure table + replay CLI) as previously deferred.
 
 Acceptance Criteria Mapping
 
@@ -175,9 +175,9 @@ Risks & Mitigations
 - Potential secret leakage → Verified alert payload omits raw secrets; only IDs, scores, hashes.
 - Retry storm → Minimal due to low concurrency; histogram of backoff added for observability.
 
-Open Follow-Up
+Open Follow-Up (updated)
 
-- Implement persistent DLQ (SQLite `alert_failures` table) with replay CLI command in Phase 6.
+- (DONE in Phase 6) Persistent DLQ (SQLite `AlertFailure`) with replay CLI command.
 
 ## Phase 5 – Metrics & Observability (Updated)
 
@@ -248,29 +248,43 @@ Acceptance Criteria
 
 ---
 
-## Phase 6 – Hardening & CI Quality Gates
+## Phase 6 – Hardening & CI Quality Gates (In Progress)
+
+Scope expanded to include persistent alert failure handling & replay tooling.
 
 Deliverables
 
-- Coverage gate >= 85% (lines core modules).
-- CodeQL action (already stubbed) passing with zero critical/unresolved alerts.
-- Security scanning (`npm audit` high severity gating is warn-only; consider fail if patch available).
-- Release artifact zip includes SBOM (cyclonedx-npm) + coverage summary.
-- Changelog generation (conventional commits) & version bump script.
+- [DONE] Persistent alert dead-letter queue (`AlertFailure` table) with replay CLI (`replay-failures`).
+- [DONE] Replay marks records (`replayedAt`, `replaySuccess`).
+- Coverage gate >= 85% (current ~85%).
+- CodeQL action passing with zero critical/unresolved alerts. (PENDING)
+- Security scanning (`npm audit`) high severity gating policy. (PENDING)
+- Release artifact zip includes SBOM (cyclonedx-npm) + coverage summary. (PENDING)
+- Changelog generation (conventional commits) & version bump script. (PENDING)
+- Integrity verifier invoked in CI. (PENDING)
+
+Additional Backlog:
+
+- Replay metrics (attempts / successes / failures counters).
+- CLI maintenance command to purge resolved failures.
+- Auto-migration step in CI bootstrap.
 
 Tasks
 
-1. Enforce coverage threshold in test script (XS).
-2. Add SBOM generation to release workflow (S).
-3. Add changelog (auto-changelog or conventional-changelog) (S).
-4. CI step: run integrity verifier (XS).
-5. Document security posture summary (XS).
+1. Enforce coverage threshold in test script (XS) [DONE].
+2. Add SBOM generation to release workflow (S) [PENDING].
+3. Add changelog generation (S) [PENDING].
+4. CI step: run integrity verifier (XS) [PENDING].
+5. Document security posture summary (XS) [PENDING].
+6. CodeQL config & baseline triage (S) [PENDING].
+7. Replay metrics instrumentation (XS) [PENDING].
 
 Acceptance Criteria
 
 - CI fails if coverage below threshold.
-- Release artifacts show SBOM + dist.
-- Integrity verifier step green.
+- Release artifacts include SBOM + coverage summary.
+- Integrity verifier passes.
+- DLQ replay integration test green (implemented).
 
 ---
 

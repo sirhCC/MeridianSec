@@ -4,7 +4,7 @@ Early warning & high-signal detection for secret exfiltration using planted (dec
 
 ## Current Status
 
-Phase 5 complete: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
+Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling, per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
 
 ### REST API (Experimental)
 
@@ -128,8 +128,10 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 | Typecheck         | `npm run typecheck`                      |
 | Build             | `npm run build`                          |
 | Format (Prettier) | `npm run format`                         |
-| Regenerate Prisma | `npx prisma generate`                    |
-| New migration     | `npx prisma migrate dev --name <change>` |
+| Regenerate Prisma     | `npx prisma generate`                    |
+| New migration         | `npx prisma migrate dev --name <change>` |
+| List alert failures   | `npm run canary -- replay-failures`      |
+| Replay alert failures | `npm run canary -- replay-failures --replay` |
 
 ### Build/Test Metrics (Phase 0 Baseline + Phase 1)
 
@@ -264,6 +266,49 @@ const expected = hmac(secret, canonicalize(body));
 if (headerSig !== expected) reject();
 ```
 
+### Dead-Letter Queue (Alert Failures) & Replay
+
+When an alert channel (e.g. webhook) exhausts retries, the final failure is persisted in the `AlertFailure` table:
+
+```jsonc
+{
+  "id": "...",
+  "detectionId": "...",
+  "canaryId": "...",
+  "adapter": "WebhookAlertChannel",
+  "reason": "Error",
+  "attempts": 3,
+  "lastError": "webhook responded 500",
+  "createdAt": "...",
+  "replayedAt": null,
+  "replaySuccess": null
+}
+```
+
+CLI usage:
+
+List failures (JSON per line):
+
+```powershell
+npm run canary -- replay-failures -l 20
+```
+
+Replay after fixing downstream (e.g. webhook now returns 2xx):
+
+```powershell
+$env:ALERT_THRESHOLD = 10
+$env:ALERT_WEBHOOK_URL = "https://example.com/fixed-endpoint"
+npm run canary -- replay-failures --replay
+```
+
+Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same threshold + signing secret logic as live alerts. Metrics currently exclude replay attempts (future enhancement may add dedicated counters).
+
+Operational tips:
+
+- Monitor backlog size; investigate repeated failures quickly.
+- Consider scheduled job (future) to export & purge resolved entries.
+- Treat presence of unreplayed failures as a warning indicator.
+
 ### Health Endpoint Details
 
 `GET /healthz` returns operational snapshot:
@@ -289,6 +334,7 @@ if (headerSig !== expected) reject();
 - Poll loop last tick exported as metric (gauge).
 - Alert retry counter + backoff histogram.
 - Structured audit log export sink.
+- Replay metrics & DLQ maintenance (purge/export) commands.
 
 ### Troubleshooting
 
