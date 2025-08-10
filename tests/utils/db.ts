@@ -17,15 +17,13 @@ export function ensureTestDb() {
   }
   const migrationsDir = path.resolve(process.cwd(), 'prisma', 'migrations');
   const hasMigrations = fs.existsSync(migrationsDir) && fs.readdirSync(migrationsDir).length > 0;
-  // For test environments with migrations, use migrate reset to ensure a clean fresh schema (non-interactive)
-  const cmd = hasMigrations
-    ? 'npx prisma migrate reset --force --skip-generate --skip-seed'
-    : 'npx prisma db push --skip-generate --accept-data-loss';
   try {
-    execSync(cmd, { stdio: 'ignore', env: process.env });
+    if (hasMigrations) {
+      execSync('npx prisma migrate deploy', { stdio: 'ignore', env: process.env });
+    } else {
+      execSync('npx prisma db push --accept-data-loss', { stdio: 'ignore', env: process.env });
+    }
   } catch (err) {
-    throw new Error(
-      'Failed to apply Prisma schema/migrations for test DB: ' + (err as Error).message,
-    );
+    throw new Error('Failed to apply Prisma schema/migrations for test DB: ' + (err as Error).message);
   }
 }
