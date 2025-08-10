@@ -122,14 +122,14 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 ### 7. Common Tasks
 
 | Task              | Command                                  |
-| ----------------- | ---------------------------------------- |
+Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI & replay metrics: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling (success/failure counters + latency histogram), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
 | Lint              | `npm run lint`                           |
 | Auto-fix lint     | `npm run lint:fix`                       |
 | Typecheck         | `npm run typecheck`                      |
 | Build             | `npm run build`                          |
 | Format (Prettier) | `npm run format`                         |
 | Regenerate Prisma     | `npx prisma generate`                    |
-| New migration         | `npx prisma migrate dev --name <change>` |
+Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same threshold + signing secret logic as live alerts. Replay attempts are instrumented via `alert_replays_total{result="success|failure"}` and latency histogram `alert_replay_latency_ms` (milliseconds from attempt start to completion).
 | List alert failures   | `npm run canary -- replay-failures`      |
 | Replay alert failures | `npm run canary -- replay-failures --replay` |
 
@@ -154,11 +154,17 @@ Custom metric inventory (current):
 | ------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
 | `detections_total`                   | Counter   | `source`                 | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL).                              |
 | `detection_pipeline_latency_seconds` | Histogram | (none)                   | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
-| `alerts_sent_total`                  | Counter   | `adapter`,`status`       | Successful alerts sent (status currently always 'sent').                                       |
-| `alert_failures_total`               | Counter   | `adapter`,`reason`       | Alerts that exhausted retries and failed (reason = error name).                                |
-| `rotations_total`                    | Counter   | (none)                   | Secret rotations performed.                                                                    |
+### Future Ideas (Backlog Excerpts)
+
+- Rotation latency histogram.
+- Poll loop last tick exported as metric (gauge). (Health includes timestamp; metric pending.)
+- Alert retry counter + backoff histogram.
+- Structured audit log export sink.
+- DLQ maintenance commands (purge/export & archival policies).
 | `integrity_verifications_total`      | Counter   | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome.                                   |
 | `integrity_failures_total`           | Counter   | `reason`                 | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH).                              |
+
+Replay attempts are tracked via `alert_replays_total` and `alert_replay_latency_ms` (success/failure + latency).
 
 Environment variables impacting metrics & alert flow:
 
