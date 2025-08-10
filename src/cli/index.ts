@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { alertReplaysTotal, alertReplayLatencyMs } from '../metrics/index.js';
 import { Command } from 'commander';
 import { loadConfig } from '../config/index.js';
 import { getLogger } from '../utils/logging.js';
@@ -6,7 +7,6 @@ import { randomSalt, hashSecret } from '../utils/hashChain.js';
 import { PrismaClient } from '@prisma/client';
 import { AlertFailureRepository } from '../repositories/alertFailureRepository.js';
 import { loadAlertingFromEnv } from '../services/alerting.js';
-import { alertReplaysTotal } from '../metrics/index.js';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -219,6 +219,7 @@ program
   for (const f of failures) {
       try {
         const payload = JSON.parse(f.payloadJson);
+  const start = Date.now();
     // AlertingService has maybeAlert method; casting narrow to expected shape
     await (alerting as ReturnType<typeof loadAlertingFromEnv>)!.maybeAlert({
           canaryId: payload.canaryId,
@@ -232,6 +233,7 @@ program
         await repo.markReplay(f.id, true);
         console.log(`Replayed ${f.id} OK`);
     try { alertReplaysTotal.inc({ result: 'success' }); } catch { /* metrics optional */ }
+  try { alertReplayLatencyMs.observe(Date.now() - start); } catch { /* metrics optional */ }
       } catch (err) {
         await repo.markReplay(f.id, false);
         console.error('Replay failed', f.id, err);

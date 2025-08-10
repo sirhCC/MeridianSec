@@ -92,6 +92,12 @@ export const alertReplaysTotal = new Counter({
   labelNames: ['result'] as const, // result=success|failure
   registers: [registry],
 });
+export const alertReplayLatencyMs = new Histogram({
+  name: 'alert_replay_latency_ms',
+  help: 'Latency of individual replay attempts (milliseconds)',
+  buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2000],
+  registers: [registry],
+});
 
 export function metricsSummary() {
   return registry.metrics();
