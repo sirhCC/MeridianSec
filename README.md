@@ -132,6 +132,7 @@ Coverage thresholds enforced (initial Phase 0 gate 60%).
 | New migration         | `npx prisma migrate dev --name <change>`     |
 | List alert failures   | `npm run canary -- replay-failures`          |
 | Replay alert failures | `npm run canary -- replay-failures --replay` |
+| Purge alert failures  | `npm run canary -- purge-failures --dry-run` |
 
 ### Build/Test Metrics (Phase 0 Baseline + Phase 1)
 
@@ -150,17 +151,18 @@ The service exposes a Prometheus text endpoint at `GET /metrics` (default Fastif
 
 Custom metric inventory (current):
 
-| Name | Type | Labels | Description |
-| ---- | ---- | ------ | ----------- |
-| `detections_total` | Counter | `source` | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL). |
-| `detection_pipeline_latency_seconds` | Histogram | (none) | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
-| `alerts_sent_total` | Counter | `adapter`,`status` | Successful alerts sent (status currently always 'sent'). |
-| `alert_failures_total` | Counter | `adapter`,`reason` | Alerts that exhausted retries and failed (reason = error name). |
-| `alert_replays_total` | Counter | `result` | Replay attempts of DLQ alert failures (result=success or failure). |
-| `alert_replay_latency_ms` | Histogram | (none) | Latency of replayed alert attempt in milliseconds. |
-| `rotations_total` | Counter | (none) | Secret rotations performed. |
-| `integrity_verifications_total` | Counter | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome. |
-| `integrity_failures_total` | Counter | `reason` | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH). |
+| Name                                 | Type      | Labels                   | Description                                                                                    |
+| ------------------------------------ | --------- | ------------------------ | ---------------------------------------------------------------------------------------------- |
+| `detections_total`                   | Counter   | `source`                 | Total detections processed by source (SIM / CLOUDTRAIL / MANUAL).                              |
+| `detection_pipeline_latency_seconds` | Histogram | (none)                   | End-to-end persistence latency for a detection (seconds). Buckets: 0.01,0.05,0.1,0.25,0.5,1,2. |
+| `alerts_sent_total`                  | Counter   | `adapter`,`status`       | Successful alerts sent (status currently always 'sent').                                       |
+| `alert_failures_total`               | Counter   | `adapter`,`reason`       | Alerts that exhausted retries and failed (reason = error name).                                |
+| `alert_replays_total`                | Counter   | `result`                 | Replay attempts of DLQ alert failures (result=success or failure).                             |
+| `alert_replay_latency_ms`            | Histogram | (none)                   | Latency of replayed alert attempt in milliseconds.                                             |
+| `alert_failures_purged_total`        | Counter   | mode                     | DLQ purge operations (values: dry_run, deleted).                                               |
+| `rotations_total`                    | Counter   | (none)                   | Secret rotations performed.                                                                    |
+| `integrity_verifications_total`      | Counter   | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome.                                   |
+| `integrity_failures_total`           | Counter   | `reason`                 | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH).                              |
 
 Replay attempts are tracked via `alert_replays_total` and `alert_replay_latency_ms` (success/failure + latency).
 
@@ -285,7 +287,7 @@ When an alert channel (e.g. webhook) exhausts retries, the final failure is pers
   "lastError": "webhook responded 500",
   "createdAt": "...",
   "replayedAt": null,
-  "replaySuccess": null
+  "replaySuccess": null,
 }
 ```
 
@@ -309,16 +311,28 @@ Each replay updates `replayedAt` + `replaySuccess`. Replay uses the same thresho
 
 Replay command exit codes:
 
-| Exit Code | Meaning |
-| --------- | ------- |
-| 0 | Listed failures (no replay) OR replay completed and all succeeded OR no failures found |
-| 1 | Configuration / runtime error (e.g. alerting disabled while --replay specified, API/validation errors) |
-| 2 | Replay executed and at least one failure replay attempt failed (partial success) |
+| Exit Code | Meaning                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------------------ |
+| 0         | Listed failures (no replay) OR replay completed and all succeeded OR no failures found                 |
+| 1         | Configuration / runtime error (e.g. alerting disabled while --replay specified, API/validation errors) |
+| 2         | Replay executed and at least one failure replay attempt failed (partial success)                       |
 
 Operational tips:
 
 - Monitor backlog size; investigate repeated failures quickly.
 - Consider scheduled job (future) to export & purge resolved entries.
+- Use `purge-failures` to enforce retention (e.g. delete >30d old, only replayed entries). Example dry-run:
+
+```powershell
+npm run canary -- purge-failures --older-than 45 --replayed-only --dry-run
+```
+
+Delete successfully replayed, older than 7 days:
+
+```powershell
+npm run canary -- purge-failures --older-than 7 --successful-only
+```
+
 - Treat presence of unreplayed failures as a warning indicator.
 
 ### Health Endpoint Details
