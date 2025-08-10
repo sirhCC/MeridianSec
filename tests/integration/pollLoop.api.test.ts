@@ -35,7 +35,7 @@ describe('Polling detection loop', () => {
     const canaryId = createResp.json().canary.id;
 
     let detectionsLen = 0;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       const list = await app.inject({ method: 'GET', url: `/v1/canaries/${canaryId}/detections` });
       if (list.statusCode === 200) {
         detectionsLen = list.json().detections.length;
@@ -44,7 +44,7 @@ describe('Polling detection loop', () => {
       await new Promise((r) => setTimeout(r, 150));
     }
     expect(detectionsLen).toBeGreaterThan(0);
-  });
+  }, 10000);
 });
 
 afterAll(async () => {

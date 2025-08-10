@@ -47,6 +47,7 @@ beforeAll(async () => {
   process.env.ALERT_STDOUT = '0';
   process.env.ALERT_WEBHOOK_URL = 'https://example.com/webhook';
   process.env.ALERT_HMAC_SECRET = 'supersecretkey';
+  process.env.SYNC_DETECTIONS_FOR_TEST = '1';
   ensureTestDb();
   const { buildServer } = await import('../../src/api/server.js');
   app = await buildServer();

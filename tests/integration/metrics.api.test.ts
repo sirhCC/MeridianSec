@@ -14,6 +14,7 @@ describe('Metrics endpoint', () => {
     process.env.DATABASE_URL = 'file:' + dbRel;
     process.env.ALERT_THRESHOLD = '10'; // very low to trigger alerts
     process.env.ALERT_STDOUT = '0'; // silence stdout channel to reduce noise
+  process.env.SYNC_DETECTIONS_FOR_TEST = '1'; // make simulate endpoint synchronous for deterministic metrics
     ensureTestDb();
     const { buildServer } = await import('../../src/api/server.js');
     app = await buildServer();
