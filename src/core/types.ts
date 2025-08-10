@@ -43,3 +43,18 @@ export interface Detection {
   hashChainCurr: string;
   correlationId: string; // persisted correlation trace id
 }
+
+export interface AlertFailureRecord {
+  id: string;
+  detectionId: string;
+  canaryId: string;
+  adapter: string;
+  reason: string;
+  payloadJson: string;
+  attempts: number;
+  lastError?: string | null;
+  createdAt: Date;
+  replayedAt?: Date | null;
+  replaySuccess?: boolean | null;
+}
+}
