@@ -4,7 +4,7 @@ Early warning & high-signal detection for secret exfiltration using planted (dec
 
 ## Current Status
 
-Phase 5 complete; Phase 6 hardening in progress with persistent alert dead-letter queue (DLQ) + replay CLI & replay metrics: CRUD + rotations, detection engine, chain integrity verify, Prometheus metrics, alerting (stdout + optional webhook w/ HMAC signature), persisted alert failures, replay tooling (success/failure counters + latency histogram), per‑detection correlation IDs, enriched `/healthz`, >85% coverage.
+Phase 6 hardening: persistent alert dead-letter queue (DLQ) + replay & purge tooling, new replay age + pending size metrics, CLI safety confirmations, enriched `/healthz` with DLQ stats, >85% coverage.
 
 ### REST API (Experimental)
 
@@ -160,6 +160,8 @@ Custom metric inventory (current):
 | `alert_replays_total`                | Counter   | `result`                 | Replay attempts of DLQ alert failures (result=success or failure).                             |
 | `alert_replay_latency_ms`            | Histogram | (none)                   | Latency of replayed alert attempt in milliseconds.                                             |
 | `alert_failures_purged_total`        | Counter   | mode                     | DLQ purge operations (values: dry_run, deleted).                                               |
+| `alert_failure_replay_age_seconds`   | Histogram | (none)                   | Age (createdAt→replayedAt) of alert failures at time of replay (seconds).                      |
+| `alert_failures_pending`             | Gauge     | (none)                   | Current number of unreplayed (pending) alert failures in DLQ.                                  |
 | `rotations_total`                    | Counter   | (none)                   | Secret rotations performed.                                                                    |
 | `integrity_verifications_total`      | Counter   | `result` (valid/invalid) | Hash-chain integrity verification endpoint calls by outcome.                                   |
 | `integrity_failures_total`           | Counter   | `reason`                 | Integrity verification failures (PREV_MISMATCH or CURR_MISMATCH).                              |
@@ -330,14 +332,18 @@ npm run canary -- purge-failures --older-than 45 --replayed-only --dry-run
 Delete successfully replayed, older than 7 days:
 
 ```powershell
-npm run canary -- purge-failures --older-than 7 --successful-only
+npm run canary -- purge-failures --older-than 7 --successful-only --force
 ```
 
 - Treat presence of unreplayed failures as a warning indicator.
+- Safety: large purges (>= `PURGE_CONFIRM_THRESHOLD`, default 50) require typing `YES` unless `--force`.
+- Output modes: JSON is default; use `--quiet` to suppress normal output (errors still to stderr). `--json` flag is available (default behaviour).
+- Exit codes (purge-failures): 0 success, 2 validation error (e.g. bad --older-than), 3 aborted (confirmation mismatch).
+- Metrics delta is included in JSON: `metricsDelta.alertFailuresPurgedTotal.delta`.
 
 ### Health Endpoint Details
 
-`GET /healthz` returns operational snapshot:
+`GET /healthz` returns operational snapshot (now includes DLQ stats):
 
 ```jsonc
 {
@@ -351,6 +357,7 @@ npm run canary -- purge-failures --older-than 7 --successful-only
     "pollingLoopLastTick": "2025-08-09T12:34:55.500Z",
     "running": true,
   },
+  "dlq": { "pending": 0 },
 }
 ```
 
