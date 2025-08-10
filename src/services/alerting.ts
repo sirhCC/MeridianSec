@@ -6,6 +6,7 @@ import {
   alertRetryDelayMs,
 } from '../metrics/index.js';
 import { buildCanonicalPayload, hmacSign } from '../utils/signing.js';
+import { AlertFailureRepository } from '../repositories/alertFailureRepository.js';
 
 // Basic in-memory metrics (to be exported later via /metrics when implemented)
 const metrics = {
@@ -71,6 +72,7 @@ export interface AlertingOptions {
 
 export class AlertingService {
   private channels: AlertChannel[] = [];
+  private failuresRepo = new AlertFailureRepository();
   constructor(private opts: AlertingOptions) {
     if (opts.enableStdout !== false) {
       this.channels.push(new StdoutAlertChannel());
@@ -104,12 +106,26 @@ export class AlertingService {
           } catch (err) {
             attempt++;
             if (attempt >= maxAttempts) {
+              const reason = (err as Error).name || 'Error';
               metrics.alertsFailed += 1;
               alertFailuresTotal.inc({
                 adapter: c.constructor.name,
-                reason: (err as Error).name || 'Error',
+                reason,
               });
               getLogger().error({ err, attempts: attempt }, 'alert send failed');
+              try {
+                await this.failuresRepo.record({
+                  detectionId: full.detectionId,
+                  canaryId: full.canaryId,
+                  adapter: c.constructor.name,
+                  reason,
+                  payloadJson: JSON.stringify(full),
+                  attempts: attempt,
+                  lastError: (err as Error).message,
+                });
+              } catch (persistErr) {
+                getLogger().error({ err: persistErr }, 'persist alert failure record failed');
+              }
               return;
             }
             // exponential backoff (50ms, 150ms)
