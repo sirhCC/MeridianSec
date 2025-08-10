@@ -3,6 +3,7 @@ import { CanaryRepository } from '../../src/repositories/canaryRepository.js';
 import { PlacementRepository } from '../../src/repositories/placementRepository.js';
 import { closePrisma } from '../../src/db/client.js';
 import crypto from 'crypto';
+import { ensureTestDb } from '../utils/db.js';
 
 const canaryRepo = new CanaryRepository();
 const placementRepo = new PlacementRepository();
@@ -10,6 +11,7 @@ const placementRepo = new PlacementRepository();
 describe('CanaryRepository', () => {
   beforeAll(() => {
     process.env.DATABASE_URL = 'file:./data/test-canary-unit.db';
+  ensureTestDb();
   });
 
   it('creates and lists canaries', async () => {
