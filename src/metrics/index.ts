@@ -99,6 +99,14 @@ export const alertReplayLatencyMs = new Histogram({
   registers: [registry],
 });
 
+// Purge counter (DLQ maintenance)
+export const alertFailuresPurgedTotal = new Counter({
+  name: 'alert_failures_purged_total',
+  help: 'Total alert failure records purged via CLI maintenance',
+  labelNames: ['mode'] as const, // mode=dry_run|deleted
+  registers: [registry],
+});
+
 export function metricsSummary() {
   return registry.metrics();
 }

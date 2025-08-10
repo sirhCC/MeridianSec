@@ -1,5 +1,9 @@
 #!/usr/bin/env node
-import { alertReplaysTotal, alertReplayLatencyMs } from '../metrics/index.js';
+import {
+  alertReplaysTotal,
+  alertReplayLatencyMs,
+  alertFailuresPurgedTotal,
+} from '../metrics/index.js';
 import { Command } from 'commander';
 import { loadConfig } from '../config/index.js';
 import { getLogger } from '../utils/logging.js';
@@ -181,7 +185,9 @@ program
   .command('replay-failures')
   .option('-l, --limit <n>', 'Number of recent failures to list', '50')
   .option('-r, --replay', 'Attempt replay after listing', false)
-  .description('List dead-lettered alert failures and optionally replay them (env alerting must be enabled)')
+  .description(
+    'List dead-lettered alert failures and optionally replay them (env alerting must be enabled)',
+  )
   .action(async (opts: { limit?: string; replay?: boolean }) => {
     const repo = new AlertFailureRepository();
     const limit = parseInt(opts.limit || '50', 10) || 50;
@@ -215,13 +221,13 @@ program
       console.error('Alerting disabled (ALERT_THRESHOLD not set) – cannot replay');
       process.exit(1);
     }
-  let anyFailure = false;
-  for (const f of failures) {
+    let anyFailure = false;
+    for (const f of failures) {
       try {
         const payload = JSON.parse(f.payloadJson);
-  const start = Date.now();
-    // AlertingService has maybeAlert method; casting narrow to expected shape
-    await (alerting as ReturnType<typeof loadAlertingFromEnv>)!.maybeAlert({
+        const start = Date.now();
+        // AlertingService has maybeAlert method; casting narrow to expected shape
+        await (alerting as ReturnType<typeof loadAlertingFromEnv>)!.maybeAlert({
           canaryId: payload.canaryId,
           detectionId: payload.detectionId,
           correlationId: payload.correlationId,
@@ -232,17 +238,91 @@ program
         });
         await repo.markReplay(f.id, true);
         console.log(`Replayed ${f.id} OK`);
-    try { alertReplaysTotal.inc({ result: 'success' }); } catch { /* metrics optional */ }
-  try { alertReplayLatencyMs.observe(Date.now() - start); } catch { /* metrics optional */ }
+        try {
+          alertReplaysTotal.inc({ result: 'success' });
+        } catch {
+          /* metrics optional */
+        }
+        try {
+          alertReplayLatencyMs.observe(Date.now() - start);
+        } catch {
+          /* metrics optional */
+        }
       } catch (err) {
         await repo.markReplay(f.id, false);
         console.error('Replay failed', f.id, err);
-    anyFailure = true;
-    try { alertReplaysTotal.inc({ result: 'failure' }); } catch { /* metrics optional */ }
+        anyFailure = true;
+        try {
+          alertReplaysTotal.inc({ result: 'failure' });
+        } catch {
+          /* metrics optional */
+        }
       }
     }
-  if (anyFailure) process.exitCode = 2; // signal partial failure without aborting listing output
+    if (anyFailure) process.exitCode = 2; // signal partial failure without aborting listing output
   });
+
+program
+  .command('purge-failures')
+  .description('Purge alert failure (DLQ) records by retention criteria')
+  .option('--older-than <days>', 'Delete records older than N days (createdAt)', '30')
+  .option(
+    '--replayed-only',
+    'Only purge records that have been replayed (success or failure)',
+    false,
+  )
+  .option(
+    '--successful-only',
+    'Only purge records replayed successfully (implies --replayed-only)',
+    false,
+  )
+  .option('--dry-run', 'Do not delete, only report count', false)
+  .action(
+    async (opts: {
+      olderThan?: string;
+      replayedOnly?: boolean;
+      successfulOnly?: boolean;
+      dryRun?: boolean;
+    }) => {
+      const repo = new AlertFailureRepository();
+      const days = parseInt(opts.olderThan || '30', 10);
+      if (Number.isNaN(days) || days <= 0) {
+        console.error('--older-than must be a positive integer');
+        process.exit(1);
+      }
+      const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const successfulOnly = !!opts.successfulOnly;
+      const replayedOnly = successfulOnly ? true : !!opts.replayedOnly;
+      const dryRun = !!opts.dryRun;
+      const { count } = await repo.purge({
+        olderThan: cutoff,
+        successfulOnly,
+        replayedOnly,
+        dryRun,
+      });
+      console.log(
+        JSON.stringify(
+          {
+            deleted: dryRun ? 0 : count,
+            wouldDelete: dryRun ? count : undefined,
+            criteria: {
+              olderThanDays: days,
+              replayedOnly,
+              successfulOnly,
+              dryRun,
+            },
+          },
+          null,
+          2,
+        ),
+      );
+      try {
+        alertFailuresPurgedTotal.inc({ mode: dryRun ? 'dry_run' : 'deleted' }, dryRun ? 0 : count);
+      } catch {
+        /* metrics optional */
+      }
+    },
+  );
 
 function httpRequest(options: http.RequestOptions, body: string): Promise<string> {
   return new Promise((resolve, reject) => {
