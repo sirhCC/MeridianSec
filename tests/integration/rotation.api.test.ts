@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
-import { closePrisma } from '../../src/db/client.js';
+import { closePrisma, resetPrisma, ensurePrismaConnected } from '../../src/db/client.js';
 import crypto from 'crypto';
 import { ensureTestDb } from '../utils/db.js';
 
@@ -8,8 +8,10 @@ let app: Awaited<ReturnType<typeof buildServer>>;
 
 describe('Canary Rotation API', () => {
   beforeAll(async () => {
+    await resetPrisma();
     process.env.DATABASE_URL = 'file:./data/test-rotation.db';
-  ensureTestDb();
+    ensureTestDb();
+    await ensurePrismaConnected();
     app = await buildServer();
   });
 
