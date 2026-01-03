@@ -22,7 +22,9 @@ export interface CreateRotationInput {
 }
 
 export class RotationRepository {
-  private prisma = getPrisma();
+  private get prisma() {
+    return getPrisma();
+  }
 
   async create(data: CreateRotationInput): Promise<Rotation> {
     try {
