@@ -1,6 +1,7 @@
 import { CanaryRepository, CreateCanaryInput } from '../repositories/canaryRepository.js';
 import { PlacementRepository } from '../repositories/placementRepository.js';
 import { RotationRepository } from '../repositories/rotationRepository.js';
+import { TokenGeneratorFactory } from '../tokens/index.js';
 import crypto from 'crypto';
 import type { Canary, Placement } from '../core/types.js';
 
@@ -61,8 +62,11 @@ export class CanaryService {
     const start = process.hrtime.bigint();
     const canary = await this.canaryRepo.get(id);
     const oldHash = canary.currentSecretHash;
-    // Generate new mock secret (consistent pattern) and hash with existing salt
-    const newSecret = 'ROT' + crypto.randomBytes(16).toString('hex');
+
+    // Generate new secret using token generator for the canary's type
+    const generated = TokenGeneratorFactory.generate(canary.type);
+    const newSecret = generated.secret;
+
     // Hashing strategy: sha256(salt + secret)
     const newHash = crypto
       .createHash('sha256')
@@ -78,7 +82,7 @@ export class CanaryService {
     // metrics
     try {
       const { rotationsTotal, rotationsLatencySeconds } = await import('../metrics/index.js');
-      rotationsTotal.inc({ type: 'default' });
+      rotationsTotal.inc({ type: canary.type });
       const end = process.hrtime.bigint();
       rotationsLatencySeconds.observe(Number(end - start) / 1e9);
     } catch {

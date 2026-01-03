@@ -6,6 +6,7 @@ import { computeHashChain } from '../utils/hashChain.js';
 import { getLogger } from '../utils/logging.js';
 import { loadAlertingFromEnv, AlertingService, getAlertMetrics } from './alerting.js';
 import { randomUUID } from 'crypto';
+import { ensurePrismaConnected } from '../db/client.js';
 import {
   detectionsTotal,
   detectionPipelineLatencySeconds,
@@ -77,6 +78,8 @@ export class DetectionEngine {
     if (!this.running) return;
     const start = process.hrtime.bigint();
     const correlationId = randomUUID();
+    // Ensure Prisma connection is ready before database operations
+    await ensurePrismaConnected();
     const latest = await this.repo.getLatestForCanary(evt.canaryId);
     const prevHash = latest?.hashChainCurr || null;
     const canonical = JSON.stringify({
@@ -135,6 +138,9 @@ export class DetectionEngine {
   private async pollTick() {
     if (!this.running) return;
     try {
+      // Ensure Prisma connection is ready before database operations
+      await ensurePrismaConnected();
+
       this.pollingLoopLastTick = new Date();
       try {
         pollLoopLastTickSeconds.set(Date.now() / 1000);
