@@ -4,7 +4,7 @@ import { closePrisma } from '../../src/db/client.js';
 import { ensureTestDb } from '../utils/db.js';
 import crypto from 'crypto';
 
-const repo = new AlertFailureRepository();
+let repo: AlertFailureRepository;
 
 function mockParams() {
   return {
@@ -22,6 +22,7 @@ describe('AlertFailureRepository', () => {
   beforeAll(() => {
     process.env.DATABASE_URL = 'file:./data/test-alert-failure-unit.db';
     ensureTestDb();
+    repo = new AlertFailureRepository();
   });
 
   it('records and retrieves a failure', async () => {

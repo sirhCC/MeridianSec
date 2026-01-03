@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { buildServer } from '../../src/api/server.js';
 import { ensureTestDb } from '../utils/db.js';
-import { closePrisma } from '../../src/db/client.js';
+import { closePrisma, resetPrisma, ensurePrismaConnected } from '../../src/db/client.js';
 
-beforeAll(() => {
+beforeAll(async () => {
+  await resetPrisma();
   process.env.DATABASE_URL = 'file:./data/test-health.db';
   ensureTestDb();
+  await ensurePrismaConnected();
 });
 
 describe('health endpoint', () => {
