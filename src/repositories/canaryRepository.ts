@@ -23,7 +23,9 @@ export interface CreateCanaryInput {
 }
 
 export class CanaryRepository {
-  private prisma = getPrisma();
+  private get prisma() {
+    return getPrisma();
+  }
 
   async create(data: CreateCanaryInput): Promise<Canary> {
     try {
