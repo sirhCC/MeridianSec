@@ -7,9 +7,13 @@ import { DetectionEngine } from '../services/detectionEngine.js';
 import { CanaryRepository } from '../repositories/canaryRepository.js';
 import { simulateDetectionBodySchema } from './schemas/canarySchemas.js';
 import { registry } from '../metrics/index.js';
+import { ensurePrismaConnected } from '../db/client.js';
 
 export async function buildServer() {
   const app = Fastify({ logger: getLogger() });
+
+  // Ensure Prisma client is connected before handling requests
+  await ensurePrismaConnected();
 
   // Detection engine (singleton for process)
   const detectionEngine = new DetectionEngine();
