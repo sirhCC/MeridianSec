@@ -34,7 +34,9 @@ function map(row: RowShape): AlertFailureRecord {
 }
 
 export class AlertFailureRepository {
-  private prisma = getPrisma();
+  private get prisma() {
+    return getPrisma();
+  }
   private async updatePendingGauge() {
     try {
       const { alertFailuresPendingGauge } = await import('../metrics/index.js');
