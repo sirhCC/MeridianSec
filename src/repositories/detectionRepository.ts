@@ -31,7 +31,9 @@ export interface CreateDetectionInput {
 }
 
 export class DetectionRepository {
-  private prisma = getPrisma();
+  private get prisma() {
+    return getPrisma();
+  }
 
   async create(data: CreateDetectionInput): Promise<Detection> {
     try {
