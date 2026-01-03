@@ -20,7 +20,9 @@ export interface CreatePlacementInput {
 }
 
 export class PlacementRepository {
-  private prisma = getPrisma();
+  private get prisma() {
+    return getPrisma();
+  }
 
   async create(data: CreatePlacementInput): Promise<Placement> {
     try {
